@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+# Configuración de pnpm.
+# Permite ejecutar el script de instalación de esbuild (requerido por Vite).
+onlyBuiltDependencies:
+  - esbuild
