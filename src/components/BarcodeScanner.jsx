@@ -2,19 +2,25 @@ import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import Icon from './Icon'
 
-// Formatos habituales de códigos de barras 1D + QR.
+// Formatos 1D habituales en etiquetas de equipos (MAC / S/N).
+// Restringido a códigos de barra lineales para acelerar la detección.
 const FORMATS = [
-  Html5QrcodeSupportedFormats.QR_CODE,
   Html5QrcodeSupportedFormats.CODE_128,
   Html5QrcodeSupportedFormats.CODE_39,
   Html5QrcodeSupportedFormats.CODE_93,
   Html5QrcodeSupportedFormats.EAN_13,
-  Html5QrcodeSupportedFormats.EAN_8,
   Html5QrcodeSupportedFormats.UPC_A,
-  Html5QrcodeSupportedFormats.UPC_E,
   Html5QrcodeSupportedFormats.ITF,
   Html5QrcodeSupportedFormats.CODABAR,
 ]
+
+// Recuadro de lectura: franja delgada y horizontal, para que solo entre
+// UN código de barras a la vez (las tablets traen MAC y S/N muy juntos).
+function qrboxStrip(vw, vh) {
+  const width = Math.round(Math.min(vw * 0.9, 360)) || 250
+  const height = Math.round(Math.min(vh * 0.2, 80)) || 70
+  return { width, height }
+}
 
 /**
  * Escáner de cámara. Llama a `onDetected(codigo)` una sola vez por activación.
@@ -42,8 +48,17 @@ export default function BarcodeScanner({ onDetected, active = true }) {
 
     scanner
       .start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 260, height: 160 } },
+        // Cámara trasera + enfoque continuo (mejor lectura, best-effort).
+        { facingMode: 'environment', advanced: [{ focusMode: 'continuous' }] },
+        {
+          fps: 10,
+          qrbox: qrboxStrip,
+          aspectRatio: 1.7778, // 16:9, vista más ancha y menos pesada
+          disableFlip: true, // no intenta decodificar en espejo -> menos carga
+          // Usa el detector de códigos nativo del navegador si existe
+          // (acelera mucho y reduce el lag en tablets).
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        },
         (decodedText) => {
           if (lockRef.current) return
           lockRef.current = true
@@ -78,8 +93,11 @@ export default function BarcodeScanner({ onDetected, active = true }) {
     <div className="w-full">
       <div
         id={containerId}
-        className="w-full aspect-[4/3] bg-black rounded-lg overflow-hidden [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
+        className="w-full aspect-[16/9] bg-black rounded-lg overflow-hidden [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
       />
+      <p className="mt-xs text-center font-body-sm text-[12px] text-on-surface-variant">
+        Alinea un solo código dentro de la franja.
+      </p>
       {error && (
         <div className="mt-sm flex items-start gap-xs bg-error-container text-on-error-container rounded-DEFAULT px-md py-sm font-body-sm text-body-sm">
           <Icon name="videocam_off" size={18} filled />
