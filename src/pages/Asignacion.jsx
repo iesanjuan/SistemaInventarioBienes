@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../components/Icon'
 import BarcodeScanner from '../components/BarcodeScanner'
+import UbicacionSelect from '../components/UbicacionSelect'
 import { supabase } from '../lib/supabaseClient'
 import { TIPO_LABEL, TIPO_ICON, ESTADO_LABEL, estadoBadgeClasses } from '../lib/assets'
 
@@ -158,11 +159,10 @@ export default function Asignacion() {
                 />
               </Field>
               <Field label="Área / Aula de destino *">
-                <input
+                <UbicacionSelect
                   className={inputCls}
                   value={form.area_aula}
-                  onChange={(e) => setField('area_aula', e.target.value)}
-                  placeholder="Ej. Aula 203, Laboratorio…"
+                  onChange={(v) => setField('area_aula', v)}
                 />
               </Field>
               <Field label="Fecha de salida *">

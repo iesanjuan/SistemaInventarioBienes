@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ScannerModal from '../components/ScannerModal'
+import UbicacionSelect, { UBICACION_ALMACEN } from '../components/UbicacionSelect'
 import { supabase } from '../lib/supabaseClient'
 
 const ESTADOS = [
@@ -28,7 +29,7 @@ function emptyForm() {
     modelo: '',
     estado_fisico: 'BUENO',
     solo_caja: false,
-    ubicacion_actual: '',
+    ubicacion_actual: UBICACION_ALMACEN,
     observaciones: '',
     accesorios: { ...EMPTY_ACC },
   }
@@ -64,8 +65,9 @@ export default function Registro() {
       setError('El código de barras es obligatorio.')
       return
     }
-    // La ubicación solo es obligatoria si hay equipo físico.
-    if (!form.solo_caja && !form.ubicacion_actual.trim()) {
+    // La ubicación siempre es obligatoria: aun siendo solo la caja,
+    // esta se encuentra físicamente en algún lugar (p. ej. el almacén).
+    if (!form.ubicacion_actual.trim()) {
       setError('La ubicación es obligatoria.')
       return
     }
@@ -84,7 +86,7 @@ export default function Registro() {
         modelo: form.solo_caja ? null : form.modelo.trim() || null,
         estado_fisico: form.solo_caja ? 'INOPERATIVO' : form.estado_fisico,
         solo_caja: form.solo_caja,
-        ubicacion_actual: form.solo_caja ? 'N/A (solo caja)' : form.ubicacion_actual.trim(),
+        ubicacion_actual: form.ubicacion_actual.trim(),
         observaciones: form.observaciones.trim() || null,
       })
       .select()
@@ -230,7 +232,8 @@ export default function Registro() {
                   Solo la caja / empaque (sin equipo físico)
                 </span>
                 <span className="block font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Al marcar, el estado físico se bloquea porque no existe el equipo, solo su caja.
+                  Al marcar se bloquean marca, modelo, estado físico y accesorios (no existe el
+                  equipo). La ubicación sigue habilitada porque la caja está físicamente en algún lugar.
                 </span>
               </span>
             </label>
@@ -272,13 +275,11 @@ export default function Registro() {
                   )}
                 </select>
               </Field>
-              <Field label={form.solo_caja ? 'Ubicación inicial' : 'Ubicación inicial *'}>
-                <input
-                  className={`${inputCls} ${form.solo_caja ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  placeholder={form.solo_caja ? 'No aplica (solo caja)' : 'Ej. Almacén Central, Aula 101…'}
-                  value={form.solo_caja ? '' : form.ubicacion_actual}
-                  onChange={(e) => setField('ubicacion_actual', e.target.value)}
-                  disabled={form.solo_caja}
+              <Field label="Ubicación inicial *">
+                <UbicacionSelect
+                  className={inputCls}
+                  value={form.ubicacion_actual}
+                  onChange={(v) => setField('ubicacion_actual', v)}
                 />
               </Field>
             </div>

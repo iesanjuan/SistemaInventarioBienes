@@ -24,3 +24,7 @@ pnpm-debug.log*
 .idea
 .DS_Store
 Thumbs.db
+
+#UI del sistema
+UI/
+UI.html

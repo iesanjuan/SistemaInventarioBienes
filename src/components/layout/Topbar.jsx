@@ -9,8 +9,8 @@ export default function Topbar({ onOpenMenu }) {
 
   return (
     <header className="flex justify-between items-center px-lg w-full h-16 bg-surface-container-lowest border-b border-outline-variant shadow-sm flex-shrink-0">
-      {/* Izquierda: menú móvil + búsqueda */}
-      <div className="flex items-center gap-md flex-1 max-w-md">
+      {/* Izquierda: menú móvil */}
+      <div className="flex items-center gap-md">
         <button
           onClick={onOpenMenu}
           className="md:hidden p-xs text-on-surface-variant hover:bg-surface-container-high rounded-DEFAULT"
@@ -18,27 +18,10 @@ export default function Topbar({ onOpenMenu }) {
         >
           <Icon name="menu" />
         </button>
-        <div className="relative w-full hidden sm:block">
-          <Icon
-            name="search"
-            size={20}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
-          />
-          <input
-            type="text"
-            placeholder="Buscar en AssetTrack Pro…"
-            className="w-full pl-10 pr-4 py-sm bg-surface-container-low border border-transparent rounded-DEFAULT focus:border-secondary focus:ring-1 focus:ring-secondary focus:outline-none font-body-sm text-body-sm text-on-surface placeholder-on-surface-variant transition-colors"
-          />
-        </div>
       </div>
 
-      {/* Derecha: acciones + perfil */}
+      {/* Derecha: perfil */}
       <div className="flex items-center gap-md">
-        <button className="hidden lg:flex items-center gap-2 bg-secondary text-on-secondary rounded-DEFAULT py-xs px-md font-label-md text-label-md hover:opacity-90 transition-opacity">
-          <Icon name="sync" size={18} />
-          Sincronizar
-        </button>
-        {/* Perfil + menú */}
         <div className="relative">
           <button
             onClick={() => setMenuOpen((v) => !v)}

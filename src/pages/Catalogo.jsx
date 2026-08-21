@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabaseClient'
+import { downloadXLSX } from '../lib/reportes'
 import {
   TIPO_LABEL,
   TIPO_ICON,
@@ -90,9 +91,13 @@ export default function Catalogo() {
             Explora, filtra y gestiona tablets y paneles solares institucionales.
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-surface-container-lowest border border-outline text-on-surface rounded-DEFAULT py-sm px-md font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm self-start">
+        <button
+          onClick={() => downloadXLSX(filtered, 'inventario.xlsx')}
+          disabled={loading || filtered.length === 0}
+          className="flex items-center gap-2 bg-surface-container-lowest border border-outline text-on-surface rounded-DEFAULT py-sm px-md font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm self-start disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Icon name="download" size={18} />
-          Exportar
+          Exportar Excel
         </button>
       </div>
 
