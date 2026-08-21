@@ -213,6 +213,12 @@ function AssetRow({ activo }) {
       {/* Código de barras */}
       <td className="py-md px-md">
         <div className="font-code-sm text-code-sm font-semibold text-primary">{activo.codigo_barras}</div>
+        {activo.numero_caja != null && (
+          <div className="text-[11px] text-on-surface-variant mt-0.5 flex items-center gap-1">
+            <Icon name="inventory_2" size={12} />
+            Caja {activo.numero_caja}
+          </div>
+        )}
       </td>
       {/* Tipo y marca */}
       <td className="py-md px-md">

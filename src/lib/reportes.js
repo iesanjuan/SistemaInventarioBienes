@@ -7,7 +7,7 @@ function activosToRows(activos) {
   return activos.map((a, i) => ({
     '#': i + 1,
     'Código de barras': a.codigo_barras,
-    'Código patrimonial': a.codigo_patrimonial ?? '—',
+    Caja: a.numero_caja ?? '—',
     Tipo: TIPO_LABEL[a.tipo_bien] ?? a.tipo_bien,
     'Marca / Modelo': [a.marca, a.modelo].filter(Boolean).join(' ') || '—',
     'Estado físico': ESTADO_LABEL[a.estado_fisico] ?? a.estado_fisico,
@@ -33,6 +33,17 @@ function buildResumenSheet(activos) {
   const verificados = activos.filter((a) => a.verificado).length
   const completos = activos.filter((a) => isComplete(a)).length
 
+  // Cantidad de activos por caja.
+  const cajasMap = {}
+  activos.forEach((a) => {
+    if (a.numero_caja != null) {
+      cajasMap[a.numero_caja] = (cajasMap[a.numero_caja] || 0) + 1
+    }
+  })
+  const porCaja = Object.keys(cajasMap)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((c) => [`Caja ${c}`, cajasMap[c]])
+
   const aoa = [
     ['RESUMEN DE INVENTARIO'],
     ['Generado', new Date().toLocaleString('es')],
@@ -41,6 +52,9 @@ function buildResumenSheet(activos) {
     ['Tablets PC', tablets],
     ['Paneles Solares', paneles],
     ['TOTAL', total],
+    [],
+    ['Cantidad por caja', 'Cantidad'],
+    ...porCaja,
     [],
     ['Totales por estado físico', 'Cantidad'],
     ...porEstado,
@@ -65,7 +79,7 @@ export function downloadXLSX(activos, filename = 'reporte-inventario.xlsx') {
   worksheet['!cols'] = [
     { wch: 5 }, // #
     { wch: 20 }, // Código de barras
-    { wch: 20 }, // Código patrimonial
+    { wch: 8 }, // Caja
     { wch: 14 }, // Tipo
     { wch: 26 }, // Marca / Modelo
     { wch: 14 }, // Estado físico
@@ -94,7 +108,7 @@ export function generarActaInventario(activos, meta = {}) {
       <tr>
         <td>${i + 1}</td>
         <td class="mono">${escapeHtml(a.codigo_barras)}</td>
-        <td class="mono">${escapeHtml(a.codigo_patrimonial ?? '—')}</td>
+        <td>${a.numero_caja ?? '—'}</td>
         <td>${escapeHtml(TIPO_LABEL[a.tipo_bien] ?? a.tipo_bien)}</td>
         <td>${escapeHtml([a.marca, a.modelo].filter(Boolean).join(' ') || '—')}</td>
         <td>${escapeHtml(ESTADO_LABEL[a.estado_fisico] ?? a.estado_fisico)}</td>
@@ -142,7 +156,7 @@ export function generarActaInventario(activos, meta = {}) {
   </div>
   <table>
     <thead><tr>
-      <th>#</th><th>Cód. barras</th><th>Cód. patrimonial</th><th>Tipo</th>
+      <th>#</th><th>Cód. barras</th><th>Caja</th><th>Tipo</th>
       <th>Marca / Modelo</th><th>Estado</th><th>Ubicación</th><th>Verificación</th><th>Accesorios</th>
     </tr></thead>
     <tbody>${filas || '<tr><td colspan="9" style="text-align:center;padding:24px;">Sin registros</td></tr>'}</tbody>

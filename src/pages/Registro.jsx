@@ -27,6 +27,7 @@ function emptyForm() {
   return {
     tipo_bien: 'TABLET',
     codigo_barras: '',
+    numero_caja: '',
     marca: defaultMarca('TABLET'),
     modelo: defaultModelo('TABLET'),
     estado_fisico: 'POR_EVALUAR',
@@ -74,6 +75,10 @@ export default function Registro() {
       setError('El código de barras es obligatorio.')
       return
     }
+    if (!String(form.numero_caja).trim()) {
+      setError('El número de caja es obligatorio.')
+      return
+    }
     // La ubicación siempre es obligatoria: aun siendo solo la caja,
     // esta se encuentra físicamente en algún lugar (p. ej. el almacén).
     if (!form.ubicacion_actual.trim()) {
@@ -88,6 +93,7 @@ export default function Registro() {
       .from('activos')
       .insert({
         codigo_barras: form.codigo_barras.trim(),
+        numero_caja: parseInt(form.numero_caja, 10),
         tipo_bien: form.tipo_bien,
         // Si solo se tiene la caja: sin marca/modelo, sin equipo -> INOPERATIVO.
         marca: form.solo_caja ? null : form.marca.trim() || null,
@@ -187,25 +193,37 @@ export default function Registro() {
           {/* Identificación */}
           <div>
             <h3 className="font-title-md text-title-md text-primary mb-md">Identificación</h3>
-            <Field label="Código de barras / Serie *">
-              <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+              <Field label="Código de barras / Serie *">
+                <div className="relative">
+                  <input
+                    className={`${inputCls} pr-10`}
+                    placeholder="Escanea o escribe el código"
+                    value={form.codigo_barras}
+                    onChange={(e) => setField('codigo_barras', e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setScanOpen(true)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-secondary hover:bg-secondary-fixed rounded-DEFAULT p-1 transition-colors"
+                    title="Escanear con la cámara"
+                    aria-label="Escanear con la cámara"
+                  >
+                    <Icon name="barcode_scanner" size={20} />
+                  </button>
+                </div>
+              </Field>
+              <Field label="Número de caja *">
                 <input
-                  className={`${inputCls} pr-10`}
-                  placeholder="Escanea o escribe el código"
-                  value={form.codigo_barras}
-                  onChange={(e) => setField('codigo_barras', e.target.value)}
+                  type="number"
+                  min="1"
+                  className={inputCls}
+                  placeholder="Ej. 63"
+                  value={form.numero_caja}
+                  onChange={(e) => setField('numero_caja', e.target.value)}
                 />
-                <button
-                  type="button"
-                  onClick={() => setScanOpen(true)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-secondary hover:bg-secondary-fixed rounded-DEFAULT p-1 transition-colors"
-                  title="Escanear con la cámara"
-                  aria-label="Escanear con la cámara"
-                >
-                  <Icon name="barcode_scanner" size={20} />
-                </button>
-              </div>
-            </Field>
+              </Field>
+            </div>
           </div>
 
           {/* Especificaciones */}
