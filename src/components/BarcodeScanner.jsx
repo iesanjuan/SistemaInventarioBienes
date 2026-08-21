@@ -84,7 +84,7 @@ export default function BarcodeScanner({ onDetected, active = true }) {
     <div className="w-full">
       <div
         id={containerId}
-        className="w-full aspect-[16/9] bg-black rounded-lg overflow-hidden [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
+        className="w-full min-h-[220px] bg-black rounded-lg overflow-hidden flex items-center justify-center [&_video]:w-full [&_video]:block [&_video]:rounded-lg"
       />
       <p className="mt-xs text-center font-body-sm text-[12px] text-on-surface-variant">
         Alinea un solo código dentro de la franja.
