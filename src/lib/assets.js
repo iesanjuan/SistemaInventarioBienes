@@ -11,6 +11,7 @@ export const TIPO_ICON = {
 }
 
 export const ESTADO_LABEL = {
+  POR_EVALUAR: 'Por evaluar',
   BUENO: 'Bueno',
   REGULAR: 'Regular',
   MALO: 'Malo',
@@ -27,6 +28,8 @@ export function estadoBadgeClasses(estado) {
     case 'MALO':
     case 'INOPERATIVO':
       return 'bg-error-container text-on-error-container'
+    case 'POR_EVALUAR':
+      return 'bg-surface-variant text-on-surface-variant border border-outline-variant'
     default:
       return 'bg-surface-variant text-on-surface-variant'
   }

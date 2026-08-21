@@ -6,6 +6,7 @@ import UbicacionSelect, { UBICACION_ALMACEN } from '../components/UbicacionSelec
 import { supabase } from '../lib/supabaseClient'
 
 const ESTADOS = [
+  { value: 'POR_EVALUAR', label: 'Por evaluar' },
   { value: 'BUENO', label: 'Bueno' },
   { value: 'REGULAR', label: 'Regular' },
   { value: 'MALO', label: 'Malo' },
@@ -27,7 +28,7 @@ function emptyForm() {
     codigo_patrimonial: '',
     marca: '',
     modelo: '',
-    estado_fisico: 'BUENO',
+    estado_fisico: 'POR_EVALUAR',
     solo_caja: false,
     ubicacion_actual: UBICACION_ALMACEN,
     observaciones: '',
@@ -257,7 +258,7 @@ export default function Registro() {
                   disabled={form.solo_caja}
                 />
               </Field>
-              <Field label="Estado físico *">
+              <Field label="Estado físico">
                 <select
                   className={`${inputCls} appearance-none ${form.solo_caja ? 'opacity-50 cursor-not-allowed' : ''}`}
                   value={form.solo_caja ? '' : form.estado_fisico}

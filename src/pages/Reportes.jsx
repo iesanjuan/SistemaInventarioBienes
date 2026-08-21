@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { TIPO_LABEL, ESTADO_LABEL, isComplete } from '../lib/assets'
 import { downloadXLSX, generarActaInventario } from '../lib/reportes'
 
-const ESTADOS = ['BUENO', 'REGULAR', 'MALO', 'INOPERATIVO']
+const ESTADOS = ['POR_EVALUAR', 'BUENO', 'REGULAR', 'MALO', 'INOPERATIVO']
 
 const initialFilters = {
   tipo: '',

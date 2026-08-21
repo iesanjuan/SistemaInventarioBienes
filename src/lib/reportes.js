@@ -24,7 +24,7 @@ function buildResumenSheet(activos) {
   const tablets = activos.filter((a) => a.tipo_bien === 'TABLET').length
   const paneles = activos.filter((a) => a.tipo_bien === 'PANEL_SOLAR').length
 
-  const estados = ['BUENO', 'REGULAR', 'MALO', 'INOPERATIVO']
+  const estados = ['POR_EVALUAR', 'BUENO', 'REGULAR', 'MALO', 'INOPERATIVO']
   const porEstado = estados.map((e) => [
     ESTADO_LABEL[e],
     activos.filter((a) => a.estado_fisico === e).length,
