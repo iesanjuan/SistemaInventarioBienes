@@ -8,14 +8,14 @@ export default function AppLayout() {
 
   return (
     <div className="h-screen flex overflow-hidden bg-surface text-on-surface">
-      {/* Sidebar fijo en desktop */}
-      <div className="hidden md:block flex-shrink-0">
+      {/* Sidebar fijo solo en pantallas grandes (escritorio) */}
+      <div className="hidden 2xl:block flex-shrink-0">
         <Sidebar />
       </div>
 
-      {/* Drawer móvil */}
+      {/* Drawer (móvil y tablets, incl. 10.1") */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50 2xl:hidden">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}

@@ -13,7 +13,7 @@ export default function Topbar({ onOpenMenu }) {
       <div className="flex items-center gap-md">
         <button
           onClick={onOpenMenu}
-          className="md:hidden p-xs text-on-surface-variant hover:bg-surface-container-high rounded-DEFAULT"
+          className="2xl:hidden p-xs text-on-surface-variant hover:bg-surface-container-high rounded-DEFAULT"
           aria-label="Abrir menú"
         >
           <Icon name="menu" />

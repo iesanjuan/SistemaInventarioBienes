@@ -47,7 +47,7 @@ export default function Sidebar({ onClose }) {
         {onClose && (
           <button
             onClick={onClose}
-            className="md:hidden p-1 text-on-surface-variant hover:bg-surface-container-high rounded-DEFAULT"
+            className="2xl:hidden p-1 text-on-surface-variant hover:bg-surface-container-high rounded-DEFAULT"
             aria-label="Cerrar menú"
           >
             <Icon name="close" size={22} />
