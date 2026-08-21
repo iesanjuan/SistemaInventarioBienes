@@ -177,7 +177,6 @@ export default function Catalogo() {
               <thead className="sticky top-0 bg-surface-container-low border-b border-outline-variant z-10">
                 <tr>
                   <Th>ID / Código de barras</Th>
-                  <Th>Cód. patrimonial</Th>
                   <Th>Tipo y marca</Th>
                   <Th>Estado</Th>
                   <Th>Ubicación</Th>
@@ -215,10 +214,6 @@ function AssetRow({ activo }) {
       <td className="py-md px-md">
         <div className="font-code-sm text-code-sm font-semibold text-primary">{activo.codigo_barras}</div>
       </td>
-      {/* Patrimonial */}
-      <td className="py-md px-md font-code-sm text-code-sm text-on-surface">
-        {activo.codigo_patrimonial || <span className="text-outline">—</span>}
-      </td>
       {/* Tipo y marca */}
       <td className="py-md px-md">
         <div className="flex items-center gap-2">
@@ -255,7 +250,7 @@ function AssetRow({ activo }) {
           ) : (
             <span className="text-outline flex items-center gap-1">
               <Icon name="pending" size={12} />
-              Pendiente
+              Sin verificar
             </span>
           )}
         </div>

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ScannerModal from '../components/ScannerModal'
 import UbicacionSelect, { UBICACION_ALMACEN } from '../components/UbicacionSelect'
+import OptionSelect from '../components/OptionSelect'
+import { MARCAS, MODELOS, defaultMarca, defaultModelo } from '../lib/modelos'
 import { supabase } from '../lib/supabaseClient'
 
 const ESTADOS = [
@@ -25,9 +27,8 @@ function emptyForm() {
   return {
     tipo_bien: 'TABLET',
     codigo_barras: '',
-    codigo_patrimonial: '',
-    marca: '',
-    modelo: '',
+    marca: defaultMarca('TABLET'),
+    modelo: defaultModelo('TABLET'),
     estado_fisico: 'POR_EVALUAR',
     solo_caja: false,
     ubicacion_actual: UBICACION_ALMACEN,
@@ -54,8 +55,15 @@ export default function Registro() {
   }
 
   function setTipo(tipo) {
-    // Al cambiar de categoría, reseteamos los accesorios (aplican distintos por tipo).
-    setForm((f) => ({ ...f, tipo_bien: tipo, accesorios: { ...EMPTY_ACC } }))
+    // Al cambiar de categoría, reseteamos accesorios, marca y modelo
+    // (las opciones aplican distinto por tipo).
+    setForm((f) => ({
+      ...f,
+      tipo_bien: tipo,
+      marca: defaultMarca(tipo),
+      modelo: defaultModelo(tipo),
+      accesorios: { ...EMPTY_ACC },
+    }))
   }
 
   async function save({ addAnother }) {
@@ -80,7 +88,6 @@ export default function Registro() {
       .from('activos')
       .insert({
         codigo_barras: form.codigo_barras.trim(),
-        codigo_patrimonial: isTablet ? form.codigo_patrimonial.trim() || null : null,
         tipo_bien: form.tipo_bien,
         // Si solo se tiene la caja: sin marca/modelo, sin equipo -> INOPERATIVO.
         marca: form.solo_caja ? null : form.marca.trim() || null,
@@ -180,39 +187,25 @@ export default function Registro() {
           {/* Identificación */}
           <div>
             <h3 className="font-title-md text-title-md text-primary mb-md">Identificación</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-              <Field label="Código de barras / Serie *">
-                <div className="relative">
-                  <input
-                    className={`${inputCls} pr-10`}
-                    placeholder="Escanea o escribe el código"
-                    value={form.codigo_barras}
-                    onChange={(e) => setField('codigo_barras', e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setScanOpen(true)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-secondary hover:bg-secondary-fixed rounded-DEFAULT p-1 transition-colors"
-                    title="Escanear con la cámara"
-                    aria-label="Escanear con la cámara"
-                  >
-                    <Icon name="barcode_scanner" size={20} />
-                  </button>
-                </div>
-              </Field>
-
-              {/* Código patrimonial: solo TABLET */}
-              {isTablet && (
-                <Field label="Código patrimonial">
-                  <input
-                    className={inputCls}
-                    placeholder="Ingresa el código"
-                    value={form.codigo_patrimonial}
-                    onChange={(e) => setField('codigo_patrimonial', e.target.value)}
-                  />
-                </Field>
-              )}
-            </div>
+            <Field label="Código de barras / Serie *">
+              <div className="relative">
+                <input
+                  className={`${inputCls} pr-10`}
+                  placeholder="Escanea o escribe el código"
+                  value={form.codigo_barras}
+                  onChange={(e) => setField('codigo_barras', e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setScanOpen(true)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-secondary hover:bg-secondary-fixed rounded-DEFAULT p-1 transition-colors"
+                  title="Escanear con la cámara"
+                  aria-label="Escanear con la cámara"
+                >
+                  <Icon name="barcode_scanner" size={20} />
+                </button>
+              </div>
+            </Field>
           </div>
 
           {/* Especificaciones */}
@@ -241,21 +234,23 @@ export default function Registro() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
               <Field label="Marca">
-                <input
+                <OptionSelect
                   className={`${inputCls} ${form.solo_caja ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  placeholder="Ej. Samsung, Jinko…"
+                  options={MARCAS[form.tipo_bien]}
                   value={form.solo_caja ? '' : form.marca}
-                  onChange={(e) => setField('marca', e.target.value)}
+                  onChange={(v) => setField('marca', v)}
                   disabled={form.solo_caja}
+                  placeholder="Nueva marca…"
                 />
               </Field>
               <Field label="Modelo">
-                <input
+                <OptionSelect
                   className={`${inputCls} ${form.solo_caja ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  placeholder="Ej. Galaxy Tab A8"
+                  options={MODELOS[form.tipo_bien]}
                   value={form.solo_caja ? '' : form.modelo}
-                  onChange={(e) => setField('modelo', e.target.value)}
+                  onChange={(v) => setField('modelo', v)}
                   disabled={form.solo_caja}
+                  placeholder="Nuevo modelo…"
                 />
               </Field>
               <Field label="Estado físico">
