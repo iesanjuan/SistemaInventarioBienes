@@ -48,17 +48,8 @@ export default function BarcodeScanner({ onDetected, active = true }) {
 
     scanner
       .start(
-        // Cámara trasera + enfoque continuo (mejor lectura, best-effort).
-        { facingMode: 'environment', advanced: [{ focusMode: 'continuous' }] },
-        {
-          fps: 10,
-          qrbox: qrboxStrip,
-          aspectRatio: 1.7778, // 16:9, vista más ancha y menos pesada
-          disableFlip: true, // no intenta decodificar en espejo -> menos carga
-          // Usa el detector de códigos nativo del navegador si existe
-          // (acelera mucho y reduce el lag en tablets).
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-        },
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: qrboxStrip },
         (decodedText) => {
           if (lockRef.current) return
           lockRef.current = true
