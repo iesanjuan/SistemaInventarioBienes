@@ -51,6 +51,38 @@ La referencia visual/maquetación es `UI/UI.html` (design system Material 3, por
    > El servidor se expone en la red local (`host: true`) para poder probar el
    > escáner de códigos de barras desde el móvil (Fase 3).
 
+## Despliegue en Vercel
+
+El proyecto incluye `vercel.json` con el *rewrite* de SPA (todas las rutas
+sirven `index.html`), imprescindible porque se usa **React Router**: sin él,
+recargar o entrar directo a `/catalogo`, `/registro`, etc. daría **404**.
+
+Pasos:
+
+1. **Importar el repositorio** en [Vercel](https://vercel.com) → *Add New… → Project*.
+   Vercel detecta el framework **Vite** y **pnpm** automáticamente
+   (Build: `pnpm build` · Output: `dist`).
+
+2. **Variables de entorno** (Project → *Settings* → *Environment Variables*),
+   para *Production*, *Preview* y *Development*:
+
+   | Nombre                    | Valor                                   |
+   | ------------------------- | --------------------------------------- |
+   | `VITE_SUPABASE_URL`       | `https://TU-PROYECTO.supabase.co`       |
+   | `VITE_SUPABASE_ANON_KEY`  | `tu-anon-public-key`                    |
+
+   > ⚠️ El `.env` local **no** se sube al repo (está en `.gitignore`); estas
+   > variables se configuran directamente en Vercel. Son la *anon key* pública
+   > (protegida por RLS), no la *service_role*.
+
+3. **Deploy.** Cada push a `main` genera un despliegue de producción; cada rama
+   o PR genera un *Preview*. Si cambias las variables de entorno, vuelve a
+   desplegar (*Redeploy*) para que tomen efecto.
+
+> **Cámara / escáner en producción:** Vercel sirve por **HTTPS**, así que el
+> escáner de códigos funciona sin configuración extra (la cámara requiere
+> contexto seguro).
+
 ## Estructura
 
 ```
