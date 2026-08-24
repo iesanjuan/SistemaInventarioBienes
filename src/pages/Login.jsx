@@ -11,7 +11,6 @@ export default function Login() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [site, setSite] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -105,32 +104,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Sede (cosmético / contexto) */}
-            <div>
-              <label htmlFor="site" className="block font-label-md text-label-md text-on-surface mb-xs">
-                Almacén / Sede
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Icon name="warehouse" size={20} className="text-outline" />
-                </div>
-                <select
-                  id="site"
-                  value={site}
-                  onChange={(e) => setSite(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2 border border-outline-variant rounded-DEFAULT bg-surface-container-low text-on-surface font-body-md text-body-md focus:ring-secondary focus:border-secondary appearance-none transition-colors"
-                >
-                  <option value="">Selecciona ubicación asignada</option>
-                  <option value="central">Almacén General</option>
-                  <option value="aip">AIP / Aulas</option>
-                  <option value="field">Auditor de Campo (Móvil)</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                  <Icon name="expand_more" size={20} className="text-outline" />
-                </div>
-              </div>
-            </div>
-
             {/* Error */}
             {error && (
               <div className="flex items-start gap-xs bg-error-container text-on-error-container rounded-DEFAULT px-md py-sm font-body-sm text-body-sm">
@@ -138,23 +111,6 @@ export default function Login() {
                 <span>{error}</span>
               </div>
             )}
-
-            {/* Acciones */}
-            <div className="flex items-center justify-between pt-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 text-secondary focus:ring-secondary border-outline-variant rounded-sm"
-                />
-                <span className="font-body-sm text-body-sm text-on-surface-variant">Recordarme</span>
-              </label>
-              <a
-                href="#"
-                className="font-label-md text-label-md text-secondary hover:text-on-secondary-fixed-variant transition-colors"
-              >
-                ¿Olvidaste tu contraseña?
-              </a>
-            </div>
 
             {/* Submit */}
             <button
