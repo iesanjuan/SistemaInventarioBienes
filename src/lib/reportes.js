@@ -1,5 +1,12 @@
 import * as XLSX from 'xlsx'
-import { TIPO_LABEL, ESTADO_LABEL, isComplete, missingAccessories } from './assets'
+import {
+  TIPO_LABEL,
+  ESTADO_LABEL,
+  isComplete,
+  missingAccessories,
+  componenteFaltante,
+  tieneEquipo,
+} from './assets'
 
 // --- Exportación a Excel (.xlsx) --------------------------------------------
 // Mismo orden de columnas que el acta PDF, para consistencia.
@@ -10,7 +17,8 @@ function activosToRows(activos) {
     Caja: a.numero_caja ?? '—',
     Tipo: TIPO_LABEL[a.tipo_bien] ?? a.tipo_bien,
     'Marca / Modelo': [a.marca, a.modelo].filter(Boolean).join(' ') || '—',
-    'Estado físico': ESTADO_LABEL[a.estado_fisico] ?? a.estado_fisico,
+    Componentes: componenteFaltante(a) ?? 'Completo',
+    'Estado físico': tieneEquipo(a) ? ESTADO_LABEL[a.estado_fisico] ?? a.estado_fisico : '—',
     Ubicación: a.ubicacion_actual,
     Verificación: a.verificado ? 'Verificado' : 'Pendiente',
     Accesorios: isComplete(a) ? 'Completo' : 'Faltan: ' + missingAccessories(a).join(', '),
@@ -32,6 +40,8 @@ function buildResumenSheet(activos) {
 
   const verificados = activos.filter((a) => a.verificado).length
   const completos = activos.filter((a) => isComplete(a)).length
+  const sinEquipo = activos.filter((a) => a.tiene_equipo === false).length
+  const sinCaja = activos.filter((a) => a.tiene_caja === false).length
 
   // Cantidad de activos por caja.
   const cajasMap = {}
@@ -59,6 +69,10 @@ function buildResumenSheet(activos) {
     ['Totales por estado físico', 'Cantidad'],
     ...porEstado,
     [],
+    ['Integridad del conjunto', 'Cantidad'],
+    ['Conjuntos sin equipo (falta tablet/panel)', sinEquipo],
+    ['Conjuntos sin caja', sinCaja],
+    [],
     ['Otros indicadores', 'Cantidad'],
     ['Verificados', verificados],
     ['Pendientes de verificar', total - verificados],
@@ -82,6 +96,7 @@ export function downloadXLSX(activos, filename = 'reporte-inventario.xlsx') {
     { wch: 8 }, // Caja
     { wch: 14 }, // Tipo
     { wch: 26 }, // Marca / Modelo
+    { wch: 18 }, // Componentes
     { wch: 14 }, // Estado físico
     { wch: 22 }, // Ubicación
     { wch: 14 }, // Verificación
@@ -111,7 +126,8 @@ export function generarActaInventario(activos, meta = {}) {
         <td>${a.numero_caja ?? '—'}</td>
         <td>${escapeHtml(TIPO_LABEL[a.tipo_bien] ?? a.tipo_bien)}</td>
         <td>${escapeHtml([a.marca, a.modelo].filter(Boolean).join(' ') || '—')}</td>
-        <td>${escapeHtml(ESTADO_LABEL[a.estado_fisico] ?? a.estado_fisico)}</td>
+        <td>${escapeHtml(componenteFaltante(a) ?? 'Completo')}</td>
+        <td>${escapeHtml(tieneEquipo(a) ? ESTADO_LABEL[a.estado_fisico] ?? a.estado_fisico : '—')}</td>
         <td>${escapeHtml(a.ubicacion_actual)}</td>
         <td>${a.verificado ? 'Verificado' : 'Pendiente'}</td>
         <td>${isComplete(a) ? 'Completo' : 'Faltan: ' + escapeHtml(missingAccessories(a).join(', '))}</td>
@@ -157,9 +173,9 @@ export function generarActaInventario(activos, meta = {}) {
   <table>
     <thead><tr>
       <th>#</th><th>Cód. barras</th><th>Caja</th><th>Tipo</th>
-      <th>Marca / Modelo</th><th>Estado</th><th>Ubicación</th><th>Verificación</th><th>Accesorios</th>
+      <th>Marca / Modelo</th><th>Componentes</th><th>Estado</th><th>Ubicación</th><th>Verificación</th><th>Accesorios</th>
     </tr></thead>
-    <tbody>${filas || '<tr><td colspan="9" style="text-align:center;padding:24px;">Sin registros</td></tr>'}</tbody>
+    <tbody>${filas || '<tr><td colspan="10" style="text-align:center;padding:24px;">Sin registros</td></tr>'}</tbody>
   </table>
   <div class="firmas">
     <div class="firma"><div class="linea"></div><small>Responsable de Auditoría</small></div>

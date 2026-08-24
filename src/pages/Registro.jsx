@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ScannerModal from '../components/ScannerModal'
 import UbicacionSelect, { UBICACION_ALMACEN } from '../components/UbicacionSelect'
@@ -31,22 +31,80 @@ function emptyForm() {
     marca: defaultMarca('TABLET'),
     modelo: defaultModelo('TABLET'),
     estado_fisico: 'POR_EVALUAR',
-    solo_caja: false,
+    tiene_caja: true,
+    tiene_equipo: true,
     ubicacion_actual: UBICACION_ALMACEN,
     observaciones: '',
     accesorios: { ...EMPTY_ACC },
   }
 }
 
+// Convierte la fila de la BD (activo + accesorios) al estado del formulario.
+function formFromActivo(activo) {
+  const acc = Array.isArray(activo.accesorios_activos)
+    ? activo.accesorios_activos[0]
+    : activo.accesorios_activos
+  return {
+    tipo_bien: activo.tipo_bien,
+    codigo_barras: activo.codigo_barras ?? '',
+    numero_caja: activo.numero_caja != null ? String(activo.numero_caja) : '',
+    marca: activo.marca ?? '',
+    modelo: activo.modelo ?? '',
+    estado_fisico: activo.estado_fisico ?? 'POR_EVALUAR',
+    tiene_caja: activo.tiene_caja ?? true,
+    tiene_equipo: activo.tiene_equipo ?? true,
+    ubicacion_actual: activo.ubicacion_actual ?? UBICACION_ALMACEN,
+    observaciones: activo.observaciones ?? '',
+    accesorios: {
+      cargador: acc?.cargador ?? false,
+      funda: acc?.funda ?? false,
+      pin_sim: acc?.pin_sim ?? false,
+      cable_suministro: acc?.cable_suministro ?? false,
+      tiene_panel: acc?.tiene_panel ?? false,
+    },
+  }
+}
+
 export default function Registro() {
   const navigate = useNavigate()
+  const { id } = useParams()
+  const isEdit = Boolean(id)
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(isEdit)
+  const [loadError, setLoadError] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [scanOpen, setScanOpen] = useState(false)
 
   const isTablet = form.tipo_bien === 'TABLET'
+
+  // En modo edición, cargamos el activo y precargamos el formulario.
+  useEffect(() => {
+    if (!isEdit) return
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setLoadError('')
+      const { data, error: qErr } = await supabase
+        .from('activos')
+        .select('*, accesorios_activos(*)')
+        .eq('id', id)
+        .single()
+      if (cancelled) return
+      if (qErr || !data) {
+        setLoadError('No se pudo cargar el activo que quieres editar.')
+        setLoading(false)
+        return
+      }
+      setForm(formFromActivo(data))
+      setLoading(false)
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [id, isEdit])
 
   function setField(name, value) {
     setForm((f) => ({ ...f, [name]: value }))
@@ -79,8 +137,13 @@ export default function Registro() {
       setError('El número de caja es obligatorio.')
       return
     }
-    // La ubicación siempre es obligatoria: aun siendo solo la caja,
-    // esta se encuentra físicamente en algún lugar (p. ej. el almacén).
+    // Debe existir al menos una parte física del conjunto.
+    if (!form.tiene_caja && !form.tiene_equipo) {
+      setError('Debe estar presente al menos la caja o el equipo.')
+      return
+    }
+    // La ubicación siempre es obligatoria: el conjunto (o lo que quede de él)
+    // se encuentra físicamente en algún lugar (p. ej. el almacén).
     if (!form.ubicacion_actual.trim()) {
       setError('La ubicación es obligatoria.')
       return
@@ -88,23 +151,27 @@ export default function Registro() {
 
     setSaving(true)
 
-    // 1) Insertar el activo y recuperar su id
-    const { data: activo, error: activoError } = await supabase
-      .from('activos')
-      .insert({
-        codigo_barras: form.codigo_barras.trim(),
-        numero_caja: parseInt(form.numero_caja, 10),
-        tipo_bien: form.tipo_bien,
-        // Si solo se tiene la caja: sin marca/modelo, sin equipo -> INOPERATIVO.
-        marca: form.solo_caja ? null : form.marca.trim() || null,
-        modelo: form.solo_caja ? null : form.modelo.trim() || null,
-        estado_fisico: form.solo_caja ? 'INOPERATIVO' : form.estado_fisico,
-        solo_caja: form.solo_caja,
-        ubicacion_actual: form.ubicacion_actual.trim(),
-        observaciones: form.observaciones.trim() || null,
-      })
-      .select()
-      .single()
+    const payload = {
+      codigo_barras: form.codigo_barras.trim(),
+      numero_caja: parseInt(form.numero_caja, 10),
+      tipo_bien: form.tipo_bien,
+      // Marca/modelo describen el conjunto (qué debería contener), aunque falte el equipo.
+      marca: form.marca.trim() || null,
+      modelo: form.modelo.trim() || null,
+      // El estado físico solo aplica si hay equipo que evaluar.
+      estado_fisico: form.tiene_equipo ? form.estado_fisico : 'POR_EVALUAR',
+      tiene_caja: form.tiene_caja,
+      tiene_equipo: form.tiene_equipo,
+      ubicacion_actual: form.ubicacion_actual.trim(),
+      observaciones: form.observaciones.trim() || null,
+    }
+
+    // 1) Crear (insert) o actualizar (update) el activo.
+    const query = isEdit
+      ? supabase.from('activos').update(payload).eq('id', id).select().single()
+      : supabase.from('activos').insert(payload).select().single()
+
+    const { data: activo, error: activoError } = await query
 
     if (activoError) {
       setSaving(false)
@@ -116,34 +183,36 @@ export default function Registro() {
       return
     }
 
-    // 2) Insertar los accesorios usando el activo_id devuelto.
-    //    Si solo es la caja, no hay accesorios (todos en false).
-    const acc = form.solo_caja
-      ? {}
-      : isTablet
-        ? {
-            cargador: form.accesorios.cargador,
-            funda: form.accesorios.funda,
-            pin_sim: form.accesorios.pin_sim,
-          }
-        : {
-            tiene_panel: form.accesorios.tiene_panel,
-            cable_suministro: form.accesorios.cable_suministro,
-          }
+    // 2) Guardar los accesorios (upsert por activo_id único).
+    //    Los accesorios son independientes: puede haber caja + accesorios sin
+    //    la tablet, o la tablet sin accesorios.
+    const acc = isTablet
+      ? {
+          cargador: form.accesorios.cargador,
+          funda: form.accesorios.funda,
+          pin_sim: form.accesorios.pin_sim,
+        }
+      : {
+          tiene_panel: form.accesorios.tiene_panel,
+          cable_suministro: form.accesorios.cable_suministro,
+        }
 
     const { error: accError } = await supabase
       .from('accesorios_activos')
-      .insert({ activo_id: activo.id, ...acc })
+      .upsert({ activo_id: activo.id, ...acc }, { onConflict: 'activo_id' })
 
     setSaving(false)
 
     if (accError) {
-      // El activo quedó creado; avisamos que faltó el registro de accesorios.
-      setError(`Activo creado, pero falló el registro de accesorios: ${accError.message}`)
+      setError(
+        `${isEdit ? 'Cambios guardados' : 'Activo creado'}, pero falló el registro de accesorios: ${accError.message}`
+      )
       return
     }
 
-    if (addAnother) {
+    if (isEdit) {
+      navigate('/catalogo')
+    } else if (addAnother) {
       setForm(emptyForm())
       setSuccess(`Activo ${activo.codigo_barras} registrado. Puedes añadir otro.`)
     } else {
@@ -151,13 +220,41 @@ export default function Registro() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="p-xl flex justify-center items-center gap-md text-on-surface-variant">
+        <Icon name="progress_activity" size={24} className="animate-spin text-secondary" />
+        Cargando activo…
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-xl flex flex-col items-center gap-sm text-center">
+        <Icon name="error" size={40} className="text-error" filled />
+        <p className="font-title-md text-title-md text-primary">{loadError}</p>
+        <button
+          onClick={() => navigate('/catalogo')}
+          className="text-secondary hover:underline font-label-md text-label-md"
+        >
+          Volver al catálogo
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="p-md md:p-lg">
       {/* Header */}
       <div className="mb-lg">
-        <h2 className="font-display-lg text-display-lg text-primary">Registro de Activos</h2>
+        <h2 className="font-display-lg text-display-lg text-primary">
+          {isEdit ? 'Editar Activo' : 'Registro de Activos'}
+        </h2>
         <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-          Da de alta nuevos activos físicos en el sistema de seguimiento.
+          {isEdit
+            ? 'Corrige los datos de un activo ya registrado.'
+            : 'Da de alta nuevos activos físicos en el sistema de seguimiento.'}
         </p>
       </div>
 
@@ -230,56 +327,66 @@ export default function Registro() {
           <div>
             <h3 className="font-title-md text-title-md text-primary mb-md">Especificaciones</h3>
 
-            {/* Solo la caja / empaque (sin equipo físico) */}
-            <label className="flex items-start gap-3 p-md mb-md rounded-lg border border-outline-variant bg-surface-container-low cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.solo_caja}
-                onChange={(e) => setField('solo_caja', e.target.checked)}
-                className="mt-0.5 w-4 h-4 text-secondary focus:ring-secondary rounded border-outline-variant"
-              />
-              <span>
-                <span className="font-label-md text-label-md text-on-surface flex items-center gap-1">
-                  <Icon name="inventory_2" size={16} className="text-on-surface-variant" />
-                  Solo la caja / empaque (sin equipo físico)
-                </span>
-                <span className="block font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Al marcar se bloquean marca, modelo, estado físico y accesorios (no existe el
-                  equipo). La ubicación sigue habilitada porque la caja está físicamente en algún lugar.
-                </span>
-              </span>
-            </label>
+            {/* Componentes presentes del conjunto (caja / equipo) */}
+            <div className="p-md mb-md rounded-lg border border-outline-variant bg-surface-container-low">
+              <p className="font-label-md text-label-md text-on-surface flex items-center gap-1 mb-1">
+                <Icon name="inventory_2" size={16} className="text-on-surface-variant" />
+                Componentes presentes
+              </p>
+              <p className="font-body-sm text-body-sm text-on-surface-variant mb-3">
+                El código de barras identifica al conjunto (está en la tablet y en la caja).
+                Marca lo que <b>físicamente existe</b>. Si falta el equipo, el estado físico se
+                desactiva; los accesorios se marcan aparte.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Check
+                  label="Caja"
+                  checked={form.tiene_caja}
+                  onChange={(v) => setField('tiene_caja', v)}
+                />
+                <Check
+                  label={isTablet ? 'Equipo (la tablet)' : 'Equipo (el panel)'}
+                  checked={form.tiene_equipo}
+                  onChange={(v) => setField('tiene_equipo', v)}
+                />
+              </div>
+              {!form.tiene_equipo && (
+                <p className="font-body-sm text-body-sm text-error mt-2 flex items-center gap-1">
+                  <Icon name="warning" size={14} filled />
+                  Registrando el conjunto <b>sin el equipo</b>. Anota en Observaciones qué pasó
+                  (p. ej. paradero desconocido).
+                </p>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
               <Field label="Marca">
                 <OptionSelect
-                  className={`${inputCls} ${form.solo_caja ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={inputCls}
                   options={MARCAS[form.tipo_bien]}
-                  value={form.solo_caja ? '' : form.marca}
+                  value={form.marca}
                   onChange={(v) => setField('marca', v)}
-                  disabled={form.solo_caja}
                   placeholder="Nueva marca…"
                 />
               </Field>
               <Field label="Modelo">
                 <OptionSelect
-                  className={`${inputCls} ${form.solo_caja ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={inputCls}
                   options={MODELOS[form.tipo_bien]}
-                  value={form.solo_caja ? '' : form.modelo}
+                  value={form.modelo}
                   onChange={(v) => setField('modelo', v)}
-                  disabled={form.solo_caja}
                   placeholder="Nuevo modelo…"
                 />
               </Field>
               <Field label="Estado físico">
                 <select
-                  className={`${inputCls} appearance-none ${form.solo_caja ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  value={form.solo_caja ? '' : form.estado_fisico}
+                  className={`${inputCls} appearance-none ${!form.tiene_equipo ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  value={form.tiene_equipo ? form.estado_fisico : ''}
                   onChange={(e) => setField('estado_fisico', e.target.value)}
-                  disabled={form.solo_caja}
+                  disabled={!form.tiene_equipo}
                 >
-                  {form.solo_caja ? (
-                    <option value="">No aplica (solo caja)</option>
+                  {!form.tiene_equipo ? (
+                    <option value="">No aplica: sin equipo</option>
                   ) : (
                     ESTADOS.map((s) => (
                       <option key={s.value} value={s.value}>
@@ -302,26 +409,20 @@ export default function Registro() {
           {/* Accesorios dinámicos */}
           <div>
             <h3 className="font-title-md text-title-md text-primary mb-sm">Accesorios incluidos</h3>
-            {form.solo_caja ? (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
-                No aplica: solo se registra la caja.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-y-2">
-                {isTablet ? (
-                  <>
-                    <Check label="Cargador" checked={form.accesorios.cargador} onChange={(v) => setAcc('cargador', v)} />
-                    <Check label="Funda" checked={form.accesorios.funda} onChange={(v) => setAcc('funda', v)} />
-                    <Check label="Pin SIM" checked={form.accesorios.pin_sim} onChange={(v) => setAcc('pin_sim', v)} />
-                  </>
-                ) : (
-                  <>
-                    <Check label="Tiene panel" checked={form.accesorios.tiene_panel} onChange={(v) => setAcc('tiene_panel', v)} />
-                    <Check label="Cable de suministro" checked={form.accesorios.cable_suministro} onChange={(v) => setAcc('cable_suministro', v)} />
-                  </>
-                )}
-              </div>
-            )}
+            <div className="grid grid-cols-2 gap-y-2">
+              {isTablet ? (
+                <>
+                  <Check label="Cargador" checked={form.accesorios.cargador} onChange={(v) => setAcc('cargador', v)} />
+                  <Check label="Funda" checked={form.accesorios.funda} onChange={(v) => setAcc('funda', v)} />
+                  <Check label="Pin SIM" checked={form.accesorios.pin_sim} onChange={(v) => setAcc('pin_sim', v)} />
+                </>
+              ) : (
+                <>
+                  <Check label="Tiene panel" checked={form.accesorios.tiene_panel} onChange={(v) => setAcc('tiene_panel', v)} />
+                  <Check label="Cable de suministro" checked={form.accesorios.cable_suministro} onChange={(v) => setAcc('cable_suministro', v)} />
+                </>
+              )}
+            </div>
           </div>
 
           {/* Observaciones */}
@@ -362,21 +463,23 @@ export default function Registro() {
             >
               Cancelar
             </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => save({ addAnother: true })}
-              className="px-6 py-2 rounded-lg bg-surface-container-high font-label-md text-label-md text-on-surface hover:bg-surface-variant transition-colors order-2 disabled:opacity-60"
-            >
-              Guardar y añadir otro
-            </button>
+            {!isEdit && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => save({ addAnother: true })}
+                className="px-6 py-2 rounded-lg bg-surface-container-high font-label-md text-label-md text-on-surface hover:bg-surface-variant transition-colors order-2 disabled:opacity-60"
+              >
+                Guardar y añadir otro
+              </button>
+            )}
             <button
               type="submit"
               disabled={saving}
               className="px-6 py-2 rounded-lg bg-secondary hover:bg-on-secondary-fixed-variant text-on-secondary font-label-md text-label-md transition-colors order-1 sm:order-3 shadow-sm flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {saving && <Icon name="progress_activity" size={18} className="animate-spin" />}
-              {saving ? 'Guardando…' : 'Guardar y finalizar'}
+              {saving ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Guardar y finalizar'}
             </button>
           </div>
         </form>

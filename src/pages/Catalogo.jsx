@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabaseClient'
 import { downloadXLSX } from '../lib/reportes'
@@ -9,6 +10,8 @@ import {
   estadoBadgeClasses,
   isComplete,
   missingAccessories,
+  componenteFaltante,
+  tieneEquipo,
 } from '../lib/assets'
 
 const TABS = [
@@ -181,6 +184,7 @@ export default function Catalogo() {
                   <Th>Estado</Th>
                   <Th>Ubicación</Th>
                   <Th>Accesorios</Th>
+                  <Th>Acciones</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
@@ -240,9 +244,22 @@ function AssetRow({ activo }) {
       </td>
       {/* Estado */}
       <td className="py-md px-md">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${estadoBadgeClasses(activo.estado_fisico)}`}>
-          {ESTADO_LABEL[activo.estado_fisico] ?? activo.estado_fisico}
-        </span>
+        {tieneEquipo(activo) ? (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${estadoBadgeClasses(activo.estado_fisico)}`}>
+            {ESTADO_LABEL[activo.estado_fisico] ?? activo.estado_fisico}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-error-container text-on-error-container border border-error/20">
+            <Icon name="report" size={12} />
+            Sin equipo
+          </span>
+        )}
+        {componenteFaltante(activo) && tieneEquipo(activo) && (
+          <div className="text-[11px] text-error mt-1 flex items-center gap-1">
+            <Icon name="report" size={12} />
+            {componenteFaltante(activo)}
+          </div>
+        )}
       </td>
       {/* Ubicación */}
       <td className="py-md px-md font-body-sm text-body-sm text-on-surface">
@@ -277,6 +294,17 @@ function AssetRow({ activo }) {
             {missing.length === 1 ? `Falta ${missing[0]}` : `Faltan ${missing.length}`}
           </span>
         )}
+      </td>
+      {/* Acciones */}
+      <td className="py-md px-md">
+        <Link
+          to={`/registro/${activo.id}`}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-secondary hover:bg-secondary-fixed transition-colors"
+          title="Editar activo"
+        >
+          <Icon name="edit" size={14} />
+          Editar
+        </Link>
       </td>
     </tr>
   )

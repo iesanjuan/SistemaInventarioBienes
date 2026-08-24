@@ -35,6 +35,26 @@ export function estadoBadgeClasses(estado) {
   }
 }
 
+// --- Componentes del conjunto (caja / equipo) ------------------------------
+// El código de barras identifica al conjunto (impreso en la tablet y la caja).
+// Cada parte puede estar presente o no. Por defecto (sin dato) se asume presente.
+export function tieneCaja(activo) {
+  return activo?.tiene_caja !== false
+}
+export function tieneEquipo(activo) {
+  return activo?.tiene_equipo !== false
+}
+
+// Etiqueta de lo que falta en el conjunto; null si caja + equipo están presentes.
+export function componenteFaltante(activo) {
+  const caja = tieneCaja(activo)
+  const equipo = tieneEquipo(activo)
+  if (!caja && !equipo) return 'Sin caja ni equipo'
+  if (!equipo) return 'Sin equipo'
+  if (!caja) return 'Sin caja'
+  return null
+}
+
 // Accesorios esperados por tipo de bien (según Tarea 2.3).
 // TABLET  -> cargador, funda, pin_sim
 // PANEL   -> tiene_panel, cable_suministro
