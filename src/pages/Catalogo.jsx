@@ -409,6 +409,7 @@ function AssetRow({ activo }) {
       <td className="py-md px-md">
         <Link
           to={`/registro/${activo.id}`}
+          state={{ from: '/catalogo' }}
           className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-secondary hover:bg-secondary-fixed transition-colors"
           title="Editar activo"
         >

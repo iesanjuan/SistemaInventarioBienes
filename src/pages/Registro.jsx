@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ScannerModal from '../components/ScannerModal'
 import UbicacionSelect, { UBICACION_ALMACEN } from '../components/UbicacionSelect'
@@ -68,8 +68,12 @@ function formFromActivo(activo) {
 
 export default function Registro() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams()
   const isEdit = Boolean(id)
+  // A dónde volver al terminar de editar/cancelar: la pantalla desde la que se
+  // abrió la edición (p. ej. el detalle de una caja). Por defecto, el catálogo.
+  const backTo = location.state?.from ?? '/catalogo'
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(isEdit)
@@ -220,7 +224,7 @@ export default function Registro() {
 
     if (isEdit) {
       toast.success('Cambios guardados.')
-      navigate('/catalogo')
+      navigate(backTo)
     } else if (addAnother) {
       setForm(emptyForm())
       toast.success(`Activo ${activo.codigo_barras} registrado. Puedes añadir otro.`)
@@ -470,7 +474,7 @@ export default function Registro() {
             <button
               type="button"
               disabled={saving}
-              onClick={() => navigate('/catalogo')}
+              onClick={() => navigate(backTo)}
               className="px-6 py-2 rounded-lg border border-outline font-label-md text-label-md text-on-surface hover:bg-surface-container-high transition-colors order-3 sm:order-1 disabled:opacity-60"
             >
               Cancelar

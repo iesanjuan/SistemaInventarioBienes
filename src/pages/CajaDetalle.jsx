@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useLocation } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabaseClient'
 import {
@@ -112,6 +112,7 @@ export default function CajaDetalle() {
 }
 
 function ActivoCard({ activo }) {
+  const location = useLocation()
   const complete = isComplete(activo)
   const missing = missingAccessories(activo)
 
@@ -135,6 +136,7 @@ function ActivoCard({ activo }) {
         </div>
         <Link
           to={`/registro/${activo.id}`}
+          state={{ from: location.pathname }}
           className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-secondary hover:bg-secondary-fixed transition-colors"
           title="Editar activo"
         >
