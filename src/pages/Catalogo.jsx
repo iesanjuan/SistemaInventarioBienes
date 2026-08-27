@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabaseClient'
 import { downloadXLSX } from '../lib/reportes'
+import { useToast } from '../context/ToastContext'
 import {
   TIPO_LABEL,
   TIPO_ICON,
@@ -21,29 +22,76 @@ const TABS = [
   { key: 'incompletos', label: 'Incompletos', alert: true },
 ]
 
+const PAGE_SIZE = 20
+
+// Aplica los filtros de pestaña + búsqueda a una consulta sobre la vista
+// v_activos. Se usa tanto para la página visible como para el conteo y la
+// exportación, así todos ven exactamente los mismos activos.
+function applyFilters(query, { tab, search }) {
+  if (tab === 'tablets') query = query.eq('tipo_bien', 'TABLET')
+  else if (tab === 'paneles') query = query.eq('tipo_bien', 'PANEL_SOLAR')
+  else if (tab === 'incompletos') query = query.eq('completo', false)
+  if (search) {
+    query = query.or(`codigo_barras.ilike.%${search}%,codigo_patrimonial.ilike.%${search}%`)
+  }
+  return query
+}
+
+// Mensaje de error más útil cuando aún no se ha aplicado la migración 0008.
+function friendlyError(error) {
+  if (error?.code === '42P01' || /v_activos|cajas_resumen/.test(error?.message ?? '')) {
+    return 'Falta aplicar la migración 0008 en Supabase (vistas v_activos / cajas_resumen). Ejecuta supabase/migrations/0008_vistas_inventario_cajas.sql en el SQL Editor.'
+  }
+  return error?.message ?? 'Error desconocido.'
+}
+
 export default function Catalogo() {
-  const [activos, setActivos] = useState([])
+  const [rows, setRows] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('todos')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [metrics, setMetrics] = useState({ total: 0, tablets: 0, paneles: 0, incompletos: 0 })
+  const [exporting, setExporting] = useState(false)
+  const toast = useToast()
 
+  // Debounce de la búsqueda para no consultar en cada tecla.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Al cambiar de pestaña o búsqueda, volvemos a la primera página.
+  useEffect(() => {
+    setPage(1)
+  }, [tab, debouncedSearch])
+
+  // Carga de la página visible (paginación en el servidor).
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
       setError('')
-      const { data, error: qError } = await supabase
-        .from('activos')
-        .select('*, accesorios_activos(*)')
+      const from = (page - 1) * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      const { data, error: qError, count } = await applyFilters(
+        supabase.from('v_activos').select('*', { count: 'exact' }),
+        { tab, search: debouncedSearch }
+      )
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       if (cancelled) return
       if (qError) {
-        setError(qError.message)
-        setActivos([])
+        setError(friendlyError(qError))
+        setRows([])
+        setTotal(0)
       } else {
-        setActivos(data ?? [])
+        setRows(data ?? [])
+        setTotal(count ?? 0)
       }
       setLoading(false)
     }
@@ -51,36 +99,68 @@ export default function Catalogo() {
     return () => {
       cancelled = true
     }
+  }, [page, tab, debouncedSearch])
+
+  // Métricas globales (conteos baratos, sin traer filas). Se cargan una vez.
+  useEffect(() => {
+    let cancelled = false
+    async function loadMetrics() {
+      const head = () => supabase.from('v_activos').select('*', { count: 'exact', head: true })
+      const [t, tb, pn, inc] = await Promise.all([
+        head(),
+        head().eq('tipo_bien', 'TABLET'),
+        head().eq('tipo_bien', 'PANEL_SOLAR'),
+        head().eq('completo', false),
+      ])
+      if (cancelled) return
+      setMetrics({
+        total: t.count ?? 0,
+        tablets: tb.count ?? 0,
+        paneles: pn.count ?? 0,
+        incompletos: inc.count ?? 0,
+      })
+    }
+    loadMetrics()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const incompletosCount = useMemo(
-    () => activos.filter((a) => !isComplete(a)).length,
-    [activos]
-  )
+  const incompletosCount = metrics.incompletos
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const metrics = useMemo(() => {
-    const total = activos.length
-    const tablets = activos.filter((a) => a.tipo_bien === 'TABLET').length
-    const paneles = activos.filter((a) => a.tipo_bien === 'PANEL_SOLAR').length
-    return { total, tablets, paneles, incompletos: incompletosCount }
-  }, [activos, incompletosCount])
-
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    return activos.filter((a) => {
-      // Filtro por pestaña
-      if (tab === 'tablets' && a.tipo_bien !== 'TABLET') return false
-      if (tab === 'paneles' && a.tipo_bien !== 'PANEL_SOLAR') return false
-      if (tab === 'incompletos' && isComplete(a)) return false
-      // Filtro por búsqueda (código de barras o patrimonial)
-      if (term) {
-        const cb = (a.codigo_barras ?? '').toLowerCase()
-        const cp = (a.codigo_patrimonial ?? '').toLowerCase()
-        if (!cb.includes(term) && !cp.includes(term)) return false
+  // Exportación: descarga TODOS los activos que cumplen el filtro actual,
+  // trayéndolos por lotes de 1000 (límite de PostgREST) bajo demanda.
+  async function exportar() {
+    setExporting(true)
+    try {
+      const CHUNK = 1000
+      let all = []
+      let from = 0
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error: qError } = await applyFilters(
+          supabase.from('v_activos').select('*'),
+          { tab, search: debouncedSearch }
+        )
+          .order('created_at', { ascending: false })
+          .range(from, from + CHUNK - 1)
+        if (qError) throw qError
+        all = all.concat(data ?? [])
+        if (!data || data.length < CHUNK) break
+        from += CHUNK
       }
-      return true
-    })
-  }, [activos, tab, search])
+      if (all.length === 0) {
+        toast.info('No hay activos para exportar con el filtro actual.')
+        return
+      }
+      downloadXLSX(all, 'inventario.xlsx')
+    } catch (e) {
+      toast.error('No se pudo exportar: ' + friendlyError(e))
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="p-md md:p-lg flex flex-col gap-lg">
@@ -95,12 +175,12 @@ export default function Catalogo() {
           </p>
         </div>
         <button
-          onClick={() => downloadXLSX(filtered, 'inventario.xlsx')}
-          disabled={loading || filtered.length === 0}
+          onClick={exportar}
+          disabled={exporting || total === 0}
           className="flex items-center gap-2 bg-surface-container-lowest border border-outline text-on-surface rounded-DEFAULT py-sm px-md font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm self-start disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Icon name="download" size={18} />
-          Exportar Excel
+          <Icon name={exporting ? 'progress_activity' : 'download'} size={18} className={exporting ? 'animate-spin' : ''} />
+          {exporting ? 'Exportando…' : 'Exportar Excel'}
         </button>
       </div>
 
@@ -152,7 +232,7 @@ export default function Catalogo() {
             />
           </div>
           <div className="font-body-sm text-body-sm text-on-surface-variant">
-            {loading ? 'Cargando…' : `${filtered.length} resultado(s)`}
+            {loading ? 'Cargando…' : `${total} resultado(s)`}
           </div>
         </div>
 
@@ -165,13 +245,13 @@ export default function Catalogo() {
               <Icon name="progress_activity" size={24} className="animate-spin text-secondary" />
               Cargando inventario…
             </div>
-          ) : filtered.length === 0 ? (
+          ) : rows.length === 0 ? (
             <EmptyState
               icon="inventory_2"
               title="Sin activos"
               subtitle={
-                activos.length === 0
-                  ? 'Aún no hay activos registrados. Usa Registration para dar de alta el primero.'
+                metrics.total === 0
+                  ? 'Aún no hay activos registrados. Usa Registro para dar de alta el primero.'
                   : 'Ningún activo coincide con el filtro actual.'
               }
             />
@@ -188,13 +268,43 @@ export default function Catalogo() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
-                {filtered.map((a) => (
+                {rows.map((a) => (
                   <AssetRow key={a.id} activo={a} />
                 ))}
               </tbody>
             </table>
           )}
         </div>
+
+        {/* Paginación */}
+        {!loading && !error && total > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-sm px-md py-sm border-t border-outline-variant">
+            <span className="font-body-sm text-body-sm text-on-surface-variant">
+              Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} de {total}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-DEFAULT border border-outline font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Icon name="chevron_left" size={18} />
+                Anterior
+              </button>
+              <span className="font-body-sm text-body-sm text-on-surface-variant px-1">
+                Página {page} de {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-DEFAULT border border-outline font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Siguiente
+                <Icon name="chevron_right" size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

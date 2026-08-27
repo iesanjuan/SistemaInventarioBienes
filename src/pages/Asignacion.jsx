@@ -4,6 +4,7 @@ import BarcodeScanner from '../components/BarcodeScanner'
 import UbicacionSelect from '../components/UbicacionSelect'
 import { supabase } from '../lib/supabaseClient'
 import { TIPO_LABEL, TIPO_ICON, ESTADO_LABEL, estadoBadgeClasses } from '../lib/assets'
+import { useToast } from '../context/ToastContext'
 
 const ESTADOS_ENTREGA = ['ENTREGADO', 'PENDIENTE']
 
@@ -29,9 +30,8 @@ export default function Asignacion() {
   const [asset, setAsset] = useState(null)
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [recientes, setRecientes] = useState([])
+  const toast = useToast()
 
   function setField(name, value) {
     setForm((f) => ({ ...f, [name]: value }))
@@ -52,19 +52,17 @@ export default function Asignacion() {
 
   async function guardar(e) {
     e.preventDefault()
-    setError('')
-    setSuccess('')
 
     if (!asset) {
-      setError('Selecciona un activo primero (escanea o busca su código).')
+      toast.error('Selecciona un activo primero (escanea o busca su código).')
       return
     }
     if (!form.responsable_nombre.trim()) {
-      setError('El nombre del responsable es obligatorio.')
+      toast.error('El nombre del responsable es obligatorio.')
       return
     }
     if (!form.area_aula.trim()) {
-      setError('El área / aula de destino es obligatoria.')
+      toast.error('El área / aula de destino es obligatoria.')
       return
     }
 
@@ -82,7 +80,7 @@ export default function Asignacion() {
     })
     if (asigError) {
       setSaving(false)
-      setError(`Error al registrar la asignación: ${asigError.message}`)
+      toast.error(`Error al registrar la asignación: ${asigError.message}`)
       return
     }
 
@@ -94,11 +92,11 @@ export default function Asignacion() {
 
     setSaving(false)
     if (updError) {
-      setError(`Asignación registrada, pero falló actualizar la ubicación: ${updError.message}`)
+      toast.error(`Asignación registrada, pero falló actualizar la ubicación: ${updError.message}`)
       return
     }
 
-    setSuccess(`Equipo ${asset.codigo_barras} asignado a ${form.responsable_nombre.trim()}.`)
+    toast.success(`Equipo ${asset.codigo_barras} asignado a ${form.responsable_nombre.trim()}.`)
     setAsset(null)
     setForm(emptyForm())
     loadRecientes()
@@ -129,7 +127,7 @@ export default function Asignacion() {
               {asset ? (
                 <SelectedAsset asset={asset} onClear={() => setAsset(null)} />
               ) : (
-                <AssetPicker onSelect={setAsset} onError={setError} />
+                <AssetPicker onSelect={setAsset} onError={toast.error} />
               )}
             </div>
           </div>
@@ -197,19 +195,6 @@ export default function Asignacion() {
                   />
                 </Field>
               </div>
-
-              {error && (
-                <div className="md:col-span-2 flex items-start gap-xs bg-error-container text-on-error-container rounded-DEFAULT px-md py-sm font-body-sm text-body-sm">
-                  <Icon name="error" size={18} filled />
-                  <span>{error}</span>
-                </div>
-              )}
-              {success && (
-                <div className="md:col-span-2 flex items-start gap-xs bg-secondary-fixed text-on-secondary-fixed rounded-DEFAULT px-md py-sm font-body-sm text-body-sm">
-                  <Icon name="check_circle" size={18} filled />
-                  <span>{success}</span>
-                </div>
-              )}
 
               <div className="md:col-span-2 flex justify-end">
                 <button

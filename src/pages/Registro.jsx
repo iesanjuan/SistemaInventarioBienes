@@ -6,6 +6,7 @@ import UbicacionSelect, { UBICACION_ALMACEN } from '../components/UbicacionSelec
 import OptionSelect from '../components/OptionSelect'
 import { MARCAS, MODELOS, defaultMarca, defaultModelo } from '../lib/modelos'
 import { supabase } from '../lib/supabaseClient'
+import { useToast } from '../context/ToastContext'
 
 const ESTADOS = [
   { value: 'POR_EVALUAR', label: 'Por evaluar' },
@@ -73,9 +74,9 @@ export default function Registro() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(isEdit)
   const [loadError, setLoadError] = useState('')
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
   const [scanOpen, setScanOpen] = useState(false)
+  const toast = useToast()
 
   const isTablet = form.tipo_bien === 'TABLET'
 
@@ -83,28 +84,39 @@ export default function Registro() {
   useEffect(() => {
     if (!isEdit) return
     let cancelled = false
+    // Guardia anti-cuelgue: si la consulta no responde (p. ej. PostgREST
+    // recargando su schema cache tras una migración), no dejamos el spinner
+    // eternamente; mostramos un error con opción de reintentar.
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 12000)
+    )
     async function load() {
       setLoading(true)
       setLoadError('')
-      const { data, error: qErr } = await supabase
-        .from('activos')
-        .select('*, accesorios_activos(*)')
-        .eq('id', id)
-        .single()
-      if (cancelled) return
-      if (qErr || !data) {
-        setLoadError('No se pudo cargar el activo que quieres editar.')
+      try {
+        const { data, error: qErr } = await Promise.race([
+          supabase.from('activos').select('*, accesorios_activos(*)').eq('id', id).single(),
+          timeout,
+        ])
+        if (cancelled) return
+        if (qErr || !data) {
+          setLoadError('No se pudo cargar el activo que quieres editar.')
+          setLoading(false)
+          return
+        }
+        setForm(formFromActivo(data))
         setLoading(false)
-        return
+      } catch {
+        if (cancelled) return
+        setLoadError('La carga está tardando demasiado. Revisa tu conexión e inténtalo de nuevo.')
+        setLoading(false)
       }
-      setForm(formFromActivo(data))
-      setLoading(false)
     }
     load()
     return () => {
       cancelled = true
     }
-  }, [id, isEdit])
+  }, [id, isEdit, reloadKey])
 
   function setField(name, value) {
     setForm((f) => ({ ...f, [name]: value }))
@@ -126,26 +138,23 @@ export default function Registro() {
   }
 
   async function save({ addAnother }) {
-    setError('')
-    setSuccess('')
-
     if (!form.codigo_barras.trim()) {
-      setError('El código de barras es obligatorio.')
+      toast.error('El código de barras es obligatorio.')
       return
     }
     if (!String(form.numero_caja).trim()) {
-      setError('El número de caja es obligatorio.')
+      toast.error('El número de caja es obligatorio.')
       return
     }
     // Debe existir al menos una parte física del conjunto.
     if (!form.tiene_caja && !form.tiene_equipo) {
-      setError('Debe estar presente al menos la caja o el equipo.')
+      toast.error('Debe estar presente al menos la caja o el equipo.')
       return
     }
     // La ubicación siempre es obligatoria: el conjunto (o lo que quede de él)
     // se encuentra físicamente en algún lugar (p. ej. el almacén).
     if (!form.ubicacion_actual.trim()) {
-      setError('La ubicación es obligatoria.')
+      toast.error('La ubicación es obligatoria.')
       return
     }
 
@@ -176,9 +185,9 @@ export default function Registro() {
     if (activoError) {
       setSaving(false)
       if (activoError.code === '23505') {
-        setError('Ya existe un activo con ese código de barras.')
+        toast.error('Ya existe un activo con ese código de barras.')
       } else {
-        setError(activoError.message)
+        toast.error(activoError.message)
       }
       return
     }
@@ -204,18 +213,20 @@ export default function Registro() {
     setSaving(false)
 
     if (accError) {
-      setError(
+      toast.error(
         `${isEdit ? 'Cambios guardados' : 'Activo creado'}, pero falló el registro de accesorios: ${accError.message}`
       )
       return
     }
 
     if (isEdit) {
+      toast.success('Cambios guardados.')
       navigate('/catalogo')
     } else if (addAnother) {
       setForm(emptyForm())
-      setSuccess(`Activo ${activo.codigo_barras} registrado. Puedes añadir otro.`)
+      toast.success(`Activo ${activo.codigo_barras} registrado. Puedes añadir otro.`)
     } else {
+      toast.success(`Activo ${activo.codigo_barras} registrado.`)
       navigate('/catalogo')
     }
   }
@@ -234,12 +245,21 @@ export default function Registro() {
       <div className="p-xl flex flex-col items-center gap-sm text-center">
         <Icon name="error" size={40} className="text-error" filled />
         <p className="font-title-md text-title-md text-primary">{loadError}</p>
-        <button
-          onClick={() => navigate('/catalogo')}
-          className="text-secondary hover:underline font-label-md text-label-md"
-        >
-          Volver al catálogo
-        </button>
+        <div className="flex items-center gap-3 mt-1">
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md hover:opacity-90 transition-opacity"
+          >
+            <Icon name="refresh" size={18} />
+            Reintentar
+          </button>
+          <button
+            onClick={() => navigate('/catalogo')}
+            className="text-secondary hover:underline font-label-md text-label-md"
+          >
+            Volver al catálogo
+          </button>
+        </div>
       </div>
     )
   }
@@ -436,20 +456,6 @@ export default function Registro() {
               onChange={(e) => setField('observaciones', e.target.value)}
             />
           </div>
-
-          {/* Mensajes */}
-          {error && (
-            <div className="flex items-start gap-xs bg-error-container text-on-error-container rounded-DEFAULT px-md py-sm font-body-sm text-body-sm">
-              <Icon name="error" size={18} filled />
-              <span>{error}</span>
-            </div>
-          )}
-          {success && (
-            <div className="flex items-start gap-xs bg-secondary-fixed text-on-secondary-fixed rounded-DEFAULT px-md py-sm font-body-sm text-body-sm">
-              <Icon name="check_circle" size={18} filled />
-              <span>{success}</span>
-            </div>
-          )}
 
           <hr className="border-outline-variant" />
 

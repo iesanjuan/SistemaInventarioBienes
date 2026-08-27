@@ -41,12 +41,17 @@ export default function BarcodeScanner({ onDetected, active = true }) {
   useEffect(() => {
     if (!active) return
 
+    let cancelled = false
     lockRef.current = false
     setError('')
     const scanner = new Html5Qrcode(containerId, { formatsToSupport: FORMATS, verbose: false })
     scannerRef.current = scanner
 
-    scanner
+    // Guardamos la promesa de arranque: la cámara se inicia de forma asíncrona,
+    // así que el cleanup debe esperar a que termine antes de detenerla. Si no,
+    // el `start()` sigue en marcha después de desmontar y deja un <video>
+    // huérfano; al remontar (p. ej. StrictMode) se apila otro → imagen doble.
+    const startPromise = scanner
       .start(
         { facingMode: 'environment' },
         { fps: 10, qrbox: qrboxStrip },
@@ -58,6 +63,7 @@ export default function BarcodeScanner({ onDetected, active = true }) {
         () => {} // ignorar errores por frame (no hay código en vista)
       )
       .catch((err) => {
+        if (cancelled) return
         setError(
           err?.message?.includes('Permission')
             ? 'Permiso de cámara denegado. Habilítalo en el navegador.'
@@ -66,16 +72,26 @@ export default function BarcodeScanner({ onDetected, active = true }) {
       })
 
     return () => {
-      const s = scannerRef.current
-      if (s && s.getState && s.getState() === 2 /* SCANNING */) {
-        s.stop().then(() => s.clear()).catch(() => {})
-      } else if (s) {
-        try {
-          s.clear()
-        } catch {
-          /* noop */
-        }
-      }
+      cancelled = true
+      startPromise.finally(() => {
+        const stop =
+          scanner.getState && scanner.getState() === 2 /* SCANNING */
+            ? scanner.stop()
+            : Promise.resolve()
+        stop
+          .catch(() => {})
+          .finally(() => {
+            try {
+              scanner.clear()
+            } catch {
+              /* noop */
+            }
+            // Red de seguridad: eliminar cualquier <video>/<canvas> residual
+            // que la librería haya inyectado en el contenedor.
+            const el = document.getElementById(containerId)
+            if (el) el.innerHTML = ''
+          })
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])

@@ -14,6 +14,8 @@ const Auditoria = lazy(() => import('./pages/Auditoria'))
 const Conciliacion = lazy(() => import('./pages/Conciliacion'))
 const Asignacion = lazy(() => import('./pages/Asignacion'))
 const Reportes = lazy(() => import('./pages/Reportes'))
+const Cajas = lazy(() => import('./pages/Cajas'))
+const CajaDetalle = lazy(() => import('./pages/CajaDetalle'))
 
 function PageFallback() {
   return (
@@ -40,6 +42,22 @@ export default function App() {
       >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/catalogo" element={<Catalogo />} />
+        <Route
+          path="/cajas"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <Cajas />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/cajas/:numero"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <CajaDetalle />
+            </Suspense>
+          }
+        />
         <Route path="/registro" element={<Registro />} />
         <Route path="/registro/:id" element={<Registro />} />
         <Route path="/configuracion" element={<Configuracion />} />

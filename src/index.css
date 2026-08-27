@@ -34,6 +34,18 @@
   }
 }
 
+/* Entrada de las notificaciones toast: desde la derecha (esquina superior). */
+@keyframes toast-in {
+  from {
+    transform: translateX(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 html,
 body,
 #root {

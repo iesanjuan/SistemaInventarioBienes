@@ -2,35 +2,33 @@ import { useState } from 'react'
 import Icon from '../components/Icon'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
+import { useToast } from '../context/ToastContext'
 
 export default function Configuracion() {
   const { user, signOut } = useAuth()
   const [pwd, setPwd] = useState('')
   const [pwd2, setPwd2] = useState('')
   const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [error, setError] = useState('')
+  const toast = useToast()
 
   async function cambiarPassword(e) {
     e.preventDefault()
-    setMsg('')
-    setError('')
     if (pwd.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.')
+      toast.error('La contraseña debe tener al menos 6 caracteres.')
       return
     }
     if (pwd !== pwd2) {
-      setError('Las contraseñas no coinciden.')
+      toast.error('Las contraseñas no coinciden.')
       return
     }
     setSaving(true)
     const { error: upErr } = await supabase.auth.updateUser({ password: pwd })
     setSaving(false)
     if (upErr) {
-      setError(upErr.message)
+      toast.error(upErr.message)
       return
     }
-    setMsg('Contraseña actualizada correctamente.')
+    toast.success('Contraseña actualizada correctamente.')
     setPwd('')
     setPwd2('')
   }
@@ -76,19 +74,6 @@ export default function Configuracion() {
           <Field label="Confirmar contraseña">
             <input type="password" className={inputCls} value={pwd2} onChange={(e) => setPwd2(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
           </Field>
-
-          {error && (
-            <div className="sm:col-span-2 flex items-start gap-xs bg-error-container text-on-error-container rounded-DEFAULT px-md py-sm font-body-sm text-body-sm">
-              <Icon name="error" size={18} filled />
-              <span>{error}</span>
-            </div>
-          )}
-          {msg && (
-            <div className="sm:col-span-2 flex items-start gap-xs bg-secondary-fixed text-on-secondary-fixed rounded-DEFAULT px-md py-sm font-body-sm text-body-sm">
-              <Icon name="check_circle" size={18} filled />
-              <span>{msg}</span>
-            </div>
-          )}
 
           <div className="sm:col-span-2 flex justify-end">
             <button

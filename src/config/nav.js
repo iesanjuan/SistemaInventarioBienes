@@ -3,6 +3,7 @@
 export const NAV_ITEMS = [
   { label: 'Panel', icon: 'dashboard', path: '/dashboard' },
   { label: 'Inventario', icon: 'inventory_2', path: '/catalogo' },
+  { label: 'Cajas', icon: 'shelves', path: '/cajas' },
   { label: 'Registro', icon: 'add_box', path: '/registro' },
   { label: 'Auditoría Móvil', icon: 'barcode_scanner', path: '/auditoria' },
   { label: 'Conciliación', icon: 'compare', path: '/conciliacion' },
