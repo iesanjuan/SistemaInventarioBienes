@@ -43,16 +43,20 @@ function buildResumenSheet(activos) {
   const sinEquipo = activos.filter((a) => a.tiene_equipo === false).length
   const sinCaja = activos.filter((a) => a.tiene_caja === false).length
 
-  // Cantidad de activos por caja.
+  // Cantidad de activos por caja. Cada tipo lleva su propia numeración,
+  // así que la clave es tipo + número (Caja 1 Tablet ≠ Caja 1 Panel).
   const cajasMap = {}
   activos.forEach((a) => {
     if (a.numero_caja != null) {
-      cajasMap[a.numero_caja] = (cajasMap[a.numero_caja] || 0) + 1
+      const suf = a.tipo_bien === 'TABLET' ? 'Tablet' : 'Panel'
+      const key = `${a.tipo_bien}#${a.numero_caja}`
+      cajasMap[key] = cajasMap[key] || { tipo: a.tipo_bien, numero: a.numero_caja, suf, count: 0 }
+      cajasMap[key].count += 1
     }
   })
-  const porCaja = Object.keys(cajasMap)
-    .sort((a, b) => Number(a) - Number(b))
-    .map((c) => [`Caja ${c}`, cajasMap[c]])
+  const porCaja = Object.values(cajasMap)
+    .sort((a, b) => a.tipo.localeCompare(b.tipo) || a.numero - b.numero)
+    .map((c) => [`Caja ${c.numero} ${c.suf}`, c.count])
 
   const aoa = [
     ['RESUMEN DE INVENTARIO'],

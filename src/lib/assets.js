@@ -10,6 +10,23 @@ export const TIPO_ICON = {
   PANEL_SOLAR: 'solar_power',
 }
 
+// Etiqueta corta para el nombre de la caja (CAJA 1 TABLET / CAJA 1 PANEL).
+export const TIPO_CAJA_LABEL = {
+  TABLET: 'TABLET',
+  PANEL_SOLAR: 'PANEL',
+}
+
+// Segmento de URL por tipo de bien y su inverso, para separar la
+// numeracion de cajas de tablets y paneles en las rutas.
+export const TIPO_SLUG = {
+  TABLET: 'tablet',
+  PANEL_SOLAR: 'panel',
+}
+export const SLUG_TIPO = {
+  tablet: 'TABLET',
+  panel: 'PANEL_SOLAR',
+}
+
 export const ESTADO_LABEL = {
   POR_EVALUAR: 'Por evaluar',
   BUENO: 'Bueno',

@@ -51,7 +51,7 @@ export default function App() {
           }
         />
         <Route
-          path="/cajas/:numero"
+          path="/cajas/:tipo/:numero"
           element={
             <Suspense fallback={<PageFallback />}>
               <CajaDetalle />

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabaseClient'
+import { TIPO_LABEL, TIPO_ICON, TIPO_CAJA_LABEL, TIPO_SLUG } from '../lib/assets'
 
-// Mensaje de error más útil cuando aún no se ha aplicado la migración 0008.
+// Mensaje de error más útil cuando aún no se ha aplicado la migración 0008/0009.
 function friendlyError(error) {
   if (error?.code === '42P01' || /v_activos|cajas_resumen/.test(error?.message ?? '')) {
-    return 'Falta aplicar la migración 0008 en Supabase (vista cajas_resumen). Ejecuta supabase/migrations/0008_vistas_inventario_cajas.sql en el SQL Editor.'
+    return 'Falta aplicar las migraciones en Supabase (vista cajas_resumen). Ejecuta supabase/migrations/0008 y 0009 en el SQL Editor.'
   }
   return error?.message ?? 'Error desconocido.'
 }
@@ -15,6 +16,9 @@ function friendlyError(error) {
 export function cajaSlug(numero) {
   return numero == null ? 'sin-caja' : String(numero)
 }
+
+// Orden de las secciones por tipo de bien.
+const TIPOS_ORDEN = ['TABLET', 'PANEL_SOLAR']
 
 export default function Cajas() {
   const [cajas, setCajas] = useState([])
@@ -45,6 +49,13 @@ export default function Cajas() {
   }, [])
 
   const totalActivos = cajas.reduce((s, c) => s + (c.total_activos ?? 0), 0)
+
+  // Agrupamos las cajas por tipo de bien para mostrarlas en secciones
+  // separadas (Tablets y Paneles llevan su propia numeración).
+  const porTipo = TIPOS_ORDEN.map((tipo) => ({
+    tipo,
+    cajas: cajas.filter((c) => c.tipo_bien === tipo),
+  })).filter((g) => g.cajas.length > 0)
 
   return (
     <div className="p-md md:p-lg flex flex-col gap-lg">
@@ -80,9 +91,28 @@ export default function Cajas() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
-          {cajas.map((c) => (
-            <CajaCard key={cajaSlug(c.numero_caja)} caja={c} />
+        <div className="flex flex-col gap-lg">
+          {porTipo.map((grupo) => (
+            <section key={grupo.tipo} className="flex flex-col gap-md">
+              <div className="flex items-center gap-2">
+                <Icon
+                  name={TIPO_ICON[grupo.tipo]}
+                  size={20}
+                  className={grupo.tipo === 'TABLET' ? 'text-secondary' : 'text-tertiary-container'}
+                />
+                <h3 className="font-title-lg text-title-lg text-primary">
+                  {TIPO_LABEL[grupo.tipo]}
+                </h3>
+                <span className="font-body-sm text-body-sm text-on-surface-variant">
+                  · {grupo.cajas.length} caja(s)
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
+                {grupo.cajas.map((c) => (
+                  <CajaCard key={`${c.tipo_bien}-${cajaSlug(c.numero_caja)}`} caja={c} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
@@ -92,12 +122,15 @@ export default function Cajas() {
 
 function CajaCard({ caja }) {
   const esSinCaja = caja.numero_caja == null
-  const titulo = esSinCaja ? 'Sin caja' : `CAJA ${caja.numero_caja}`
+  const tipoLabel = TIPO_CAJA_LABEL[caja.tipo_bien] ?? ''
+  const titulo = esSinCaja
+    ? `Sin caja · ${tipoLabel}`
+    : `CAJA ${caja.numero_caja} ${tipoLabel}`
   const incompletos = caja.incompletos ?? 0
 
   return (
     <Link
-      to={`/cajas/${cajaSlug(caja.numero_caja)}`}
+      to={`/cajas/${TIPO_SLUG[caja.tipo_bien]}/${cajaSlug(caja.numero_caja)}`}
       className="group bg-surface-container-lowest border border-outline-variant rounded-lg shadow-sm p-md flex flex-col gap-md hover:border-secondary hover:shadow-md transition-all"
     >
       <div className="flex items-start justify-between">

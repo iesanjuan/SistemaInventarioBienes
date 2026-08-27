@@ -333,18 +333,19 @@ export default function Registro() {
                   </button>
                 </div>
               </Field>
-              <Field label="Número de caja (contenedor)">
+              <Field label={`Número de caja de ${isTablet ? 'Tablets' : 'Paneles'} (contenedor)`}>
                 <input
                   type="number"
                   min="1"
                   className={inputCls}
-                  placeholder="Opcional · ej. 63"
+                  placeholder={isTablet ? 'Opcional · ej. 63' : 'Opcional · ej. 4'}
                   value={form.numero_caja}
                   onChange={(e) => setField('numero_caja', e.target.value)}
                 />
                 <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
-                  El cajón grande que agrupa varias. Déjalo vacío si no está en ninguno
-                  (irá al grupo «Sin caja»).
+                  El cajón grande que agrupa varias. Cada categoría lleva su propia
+                  numeración: la «CAJA 1» de tablets es distinta de la «CAJA 1» de paneles.
+                  Déjalo vacío si no está en ninguno (irá al grupo «Sin caja»).
                 </p>
               </Field>
             </div>

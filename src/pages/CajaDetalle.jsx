@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabaseClient'
 import {
   TIPO_LABEL,
   TIPO_ICON,
+  TIPO_CAJA_LABEL,
+  SLUG_TIPO,
   ESTADO_LABEL,
   estadoBadgeClasses,
   isComplete,
@@ -21,9 +23,13 @@ function friendlyError(error) {
 }
 
 export default function CajaDetalle() {
-  const { numero } = useParams()
+  const { tipo, numero } = useParams()
+  const tipoBien = SLUG_TIPO[tipo]
+  const tipoLabel = TIPO_CAJA_LABEL[tipoBien] ?? ''
   const esSinCaja = numero === 'sin-caja'
-  const titulo = esSinCaja ? 'Sin caja' : `CAJA ${numero}`
+  const titulo = esSinCaja
+    ? `Sin caja · ${tipoLabel}`
+    : `CAJA ${numero} ${tipoLabel}`
 
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -34,7 +40,13 @@ export default function CajaDetalle() {
     async function load() {
       setLoading(true)
       setError('')
-      let query = supabase.from('v_activos').select('*')
+      // Slug de tipo desconocido (URL manipulada): no hay nada que mostrar.
+      if (!tipoBien) {
+        setRows([])
+        setLoading(false)
+        return
+      }
+      let query = supabase.from('v_activos').select('*').eq('tipo_bien', tipoBien)
       query = esSinCaja
         ? query.is('numero_caja', null)
         : query.eq('numero_caja', Number(numero))
@@ -53,7 +65,7 @@ export default function CajaDetalle() {
     return () => {
       cancelled = true
     }
-  }, [numero, esSinCaja])
+  }, [numero, esSinCaja, tipoBien])
 
   return (
     <div className="p-md md:p-lg flex flex-col gap-lg">
