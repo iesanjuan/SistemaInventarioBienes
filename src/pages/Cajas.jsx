@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabaseClient'
@@ -24,6 +24,8 @@ export default function Cajas() {
   const [cajas, setCajas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // Tipo seleccionado en el selector superior (Tablet / Panel).
+  const [tipoSel, setTipoSel] = useState('TABLET')
 
   useEffect(() => {
     let cancelled = false
@@ -50,12 +52,16 @@ export default function Cajas() {
 
   const totalActivos = cajas.reduce((s, c) => s + (c.total_activos ?? 0), 0)
 
-  // Agrupamos las cajas por tipo de bien para mostrarlas en secciones
-  // separadas (Tablets y Paneles llevan su propia numeración).
-  const porTipo = TIPOS_ORDEN.map((tipo) => ({
-    tipo,
-    cajas: cajas.filter((c) => c.tipo_bien === tipo),
-  })).filter((g) => g.cajas.length > 0)
+  // Conteos por tipo (para el selector) y cajas del tipo seleccionado.
+  const conteoPorTipo = useMemo(() => {
+    const acc = { TABLET: 0, PANEL_SOLAR: 0 }
+    cajas.forEach((c) => {
+      if (c.tipo_bien in acc) acc[c.tipo_bien] += 1
+    })
+    return acc
+  }, [cajas])
+
+  const cajasDelTipo = cajas.filter((c) => c.tipo_bien === tipoSel)
 
   return (
     <div className="p-md md:p-lg flex flex-col gap-lg">
@@ -91,32 +97,61 @@ export default function Cajas() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-lg">
-          {porTipo.map((grupo) => (
-            <section key={grupo.tipo} className="flex flex-col gap-md">
-              <div className="flex items-center gap-2">
-                <Icon
-                  name={TIPO_ICON[grupo.tipo]}
-                  size={20}
-                  className={grupo.tipo === 'TABLET' ? 'text-secondary' : 'text-tertiary-container'}
-                />
-                <h3 className="font-title-lg text-title-lg text-primary">
-                  {TIPO_LABEL[grupo.tipo]}
-                </h3>
-                <span className="font-body-sm text-body-sm text-on-surface-variant">
-                  · {grupo.cajas.length} caja(s)
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
-                {grupo.cajas.map((c) => (
-                  <CajaCard key={`${c.tipo_bien}-${cajaSlug(c.numero_caja)}`} caja={c} />
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="flex flex-col gap-md">
+          {/* Selector de tipo: cambia entre Tablet y Panel sin scroll. */}
+          <div className="flex gap-2">
+            {TIPOS_ORDEN.map((tipo) => (
+              <TipoTab
+                key={tipo}
+                tipo={tipo}
+                active={tipoSel === tipo}
+                count={conteoPorTipo[tipo]}
+                onClick={() => setTipoSel(tipo)}
+              />
+            ))}
+          </div>
+
+          {cajasDelTipo.length === 0 ? (
+            <div className="p-xl flex flex-col items-center justify-center text-center gap-sm min-h-[200px]">
+              <Icon name={TIPO_ICON[tipoSel]} size={40} className="text-on-surface-variant" />
+              <p className="font-title-md text-title-md text-primary">
+                Sin cajas de {TIPO_LABEL[tipoSel]}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
+              {cajasDelTipo.map((c) => (
+                <CajaCard key={`${c.tipo_bien}-${cajaSlug(c.numero_caja)}`} caja={c} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
+  )
+}
+
+function TipoTab({ tipo, active, count, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 flex items-center justify-center gap-2 border rounded-lg px-4 py-3 transition-all ${
+        active
+          ? 'border-secondary bg-secondary-fixed text-on-secondary-fixed'
+          : 'border-outline-variant hover:bg-surface-container-low text-on-surface'
+      }`}
+    >
+      <Icon name={TIPO_ICON[tipo]} size={20} />
+      <span className="font-label-md text-label-md">{TIPO_LABEL[tipo]}</span>
+      <span
+        className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[11px] font-semibold ${
+          active ? 'bg-on-secondary-fixed/15 text-on-secondary-fixed' : 'bg-surface-variant text-on-surface-variant'
+        }`}
+      >
+        {count}
+      </span>
+    </button>
   )
 }
 
