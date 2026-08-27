@@ -1,47 +1,53 @@
-// Selector de ubicación con las opciones reales del colegio:
-//  - Almacén General: donde ingresan/permanecen todos los bienes.
-//  - AIP: Aula de Innovación Pedagógica.
-//  - Salón: se especifica el número o nombre del salón de destino.
+import { useEffect, useState } from 'react'
+
+// Selector de ubicación. Opciones frecuentes del colegio + "Otro…" para
+// escribir cualquier otro lugar, ya que las tablets pueden estar repartidas
+// en sitios distintos.
 //
 // El valor guardado (string) es directamente lo que se almacena en
 // `activos.ubicacion_actual` / `asignaciones.area_aula`, p. ej.
-// "Almacén General", "AIP" o "Salón 12".
+// "Almacén General", "AIP" o cualquier texto escrito en "Otro…".
 
 export const UBICACION_ALMACEN = 'Almacén General'
 
 const OPCIONES = [
   { value: UBICACION_ALMACEN, label: 'Almacén General' },
   { value: 'AIP', label: 'AIP (Aula de Innovación)' },
-  { value: 'Salón', label: 'Salón…' },
 ]
 
-function esSalon(value) {
-  return typeof value === 'string' && value.startsWith('Salón')
+const OTRO = '__OTRO__'
+
+function esConocida(value) {
+  return OPCIONES.some((o) => o.value === value)
 }
 
 export default function UbicacionSelect({ value, onChange, disabled = false, className = '' }) {
-  const salonSel = esSalon(value)
-  const selected = salonSel ? 'Salón' : value || ''
-  const salonNum = salonSel ? value.replace(/^Salón\s*/, '') : ''
+  const isKnown = value !== '' && esConocida(value)
+  const [otro, setOtro] = useState(value !== '' && !isKnown)
 
-  function handleSelect(opt) {
-    if (opt === 'Salón') {
-      onChange(salonNum ? `Salón ${salonNum}` : 'Salón')
+  // Si el valor llega desde fuera y no es una opción conocida, activa "Otro".
+  useEffect(() => {
+    if (value !== '' && !esConocida(value)) setOtro(true)
+    if (value === '') setOtro(false)
+  }, [value])
+
+  const selectValue = otro ? OTRO : isKnown ? value : ''
+
+  function handleSelect(v) {
+    if (v === OTRO) {
+      setOtro(true)
+      onChange('')
     } else {
-      onChange(opt)
+      setOtro(false)
+      onChange(v)
     }
-  }
-
-  function handleSalon(num) {
-    const n = num.trim()
-    onChange(n ? `Salón ${n}` : 'Salón')
   }
 
   return (
     <div className="flex gap-2">
       <select
         className={`${className} appearance-none flex-1`}
-        value={selected}
+        value={selectValue}
         onChange={(e) => handleSelect(e.target.value)}
         disabled={disabled}
       >
@@ -51,14 +57,15 @@ export default function UbicacionSelect({ value, onChange, disabled = false, cla
             {o.label}
           </option>
         ))}
+        <option value={OTRO}>Otro…</option>
       </select>
-      {selected === 'Salón' && (
+      {otro && (
         <input
           type="text"
-          className={`${className} w-32`}
-          placeholder="N.º o nombre"
-          value={salonNum}
-          onChange={(e) => handleSalon(e.target.value)}
+          className={`${className} flex-1`}
+          placeholder="Escribe la ubicación…"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
         />
       )}
