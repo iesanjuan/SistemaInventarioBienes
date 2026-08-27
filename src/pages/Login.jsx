@@ -123,10 +123,6 @@ export default function Login() {
             </button>
           </form>
         </div>
-
-        <div className="mt-xl text-center">
-          <p className="font-code-sm text-code-sm text-outline">v0.1.0 · Entorno seguro</p>
-        </div>
       </main>
     </div>
   )
