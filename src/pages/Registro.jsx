@@ -142,10 +142,9 @@ export default function Registro() {
       toast.error('El código de barras es obligatorio.')
       return
     }
-    if (!String(form.numero_caja).trim()) {
-      toast.error('El número de caja es obligatorio.')
-      return
-    }
+    // El número de caja (contenedor) es siempre opcional e independiente de
+    // la cajita individual: una tablet puede tener su caja pero no estar en
+    // ningún contenedor grande.
     // Debe existir al menos una parte física del conjunto.
     if (!form.tiene_caja && !form.tiene_equipo) {
       toast.error('Debe estar presente al menos la caja o el equipo.')
@@ -162,7 +161,8 @@ export default function Registro() {
 
     const payload = {
       codigo_barras: form.codigo_barras.trim(),
-      numero_caja: parseInt(form.numero_caja, 10),
+      // Contenedor opcional: vacío -> null (no está en ningún contenedor grande).
+      numero_caja: String(form.numero_caja).trim() ? parseInt(form.numero_caja, 10) : null,
       tipo_bien: form.tipo_bien,
       // Marca/modelo describen el conjunto (qué debería contener), aunque falte el equipo.
       marca: form.marca.trim() || null,
@@ -202,7 +202,6 @@ export default function Registro() {
           pin_sim: form.accesorios.pin_sim,
         }
       : {
-          tiene_panel: form.accesorios.tiene_panel,
           cable_suministro: form.accesorios.cable_suministro,
         }
 
@@ -330,15 +329,19 @@ export default function Registro() {
                   </button>
                 </div>
               </Field>
-              <Field label="Número de caja *">
+              <Field label="Número de caja (contenedor)">
                 <input
                   type="number"
                   min="1"
                   className={inputCls}
-                  placeholder="Ej. 63"
+                  placeholder="Opcional · ej. 63"
                   value={form.numero_caja}
                   onChange={(e) => setField('numero_caja', e.target.value)}
                 />
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                  El cajón grande que agrupa varias. Déjalo vacío si no está en ninguno
+                  (irá al grupo «Sin caja»).
+                </p>
               </Field>
             </div>
           </div>
@@ -360,7 +363,7 @@ export default function Registro() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Check
-                  label="Caja"
+                  label="Caja individual"
                   checked={form.tiene_caja}
                   onChange={(v) => setField('tiene_caja', v)}
                 />
@@ -370,6 +373,12 @@ export default function Registro() {
                   onChange={(v) => setField('tiene_equipo', v)}
                 />
               </div>
+              {!form.tiene_caja && (
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-2 flex items-center gap-1">
+                  <Icon name="info" size={14} />
+                  El equipo no tiene su caja propia.
+                </p>
+              )}
               {!form.tiene_equipo && (
                 <p className="font-body-sm text-body-sm text-error mt-2 flex items-center gap-1">
                   <Icon name="warning" size={14} filled />
@@ -437,10 +446,7 @@ export default function Registro() {
                   <Check label="Pin SIM" checked={form.accesorios.pin_sim} onChange={(v) => setAcc('pin_sim', v)} />
                 </>
               ) : (
-                <>
-                  <Check label="Tiene panel" checked={form.accesorios.tiene_panel} onChange={(v) => setAcc('tiene_panel', v)} />
-                  <Check label="Cable de suministro" checked={form.accesorios.cable_suministro} onChange={(v) => setAcc('cable_suministro', v)} />
-                </>
+                <Check label="Cable de suministro" checked={form.accesorios.cable_suministro} onChange={(v) => setAcc('cable_suministro', v)} />
               )}
             </div>
           </div>

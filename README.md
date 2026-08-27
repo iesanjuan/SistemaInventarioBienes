@@ -38,7 +38,9 @@ La referencia visual/maquetación es `UI/UI.html` (design system Material 3, por
    5. `supabase/migrations/0005_estado_por_evaluar.sql` — estado `POR_EVALUAR`
    6. `supabase/migrations/0006_activos_numero_caja.sql` — columna `numero_caja` (caja de cada activo)
    7. `supabase/migrations/0007_activos_componentes.sql` — columnas `tiene_caja` y `tiene_equipo` (componentes presentes del conjunto)
-   8. `supabase/seed.sql` — *(opcional)* datos de prueba
+   8. `supabase/migrations/0008_vistas_inventario_cajas.sql` — vistas `v_activos` y `cajas_resumen`
+   9. `supabase/migrations/0009_v_activos_completo_panel.sql` — ajuste de "completo" del panel (solo `cable_suministro`)
+   10. `supabase/seed.sql` — *(opcional)* datos de prueba
 
 4. **Crear un usuario**
 

@@ -55,13 +55,13 @@ export function componenteFaltante(activo) {
   return null
 }
 
-// Accesorios esperados por tipo de bien (según Tarea 2.3).
+// Accesorios esperados por tipo de bien.
 // TABLET  -> cargador, funda, pin_sim
-// PANEL   -> tiene_panel, cable_suministro
+// PANEL   -> cable_suministro (la existencia del panel ya la cubre "Equipo")
 export function expectedAccessories(tipo) {
   return tipo === 'TABLET'
     ? ['cargador', 'funda', 'pin_sim']
-    : ['tiene_panel', 'cable_suministro']
+    : ['cable_suministro']
 }
 
 // ¿Están completos todos los accesorios esperados?
