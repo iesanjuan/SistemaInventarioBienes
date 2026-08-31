@@ -1,0 +1,47 @@
+name: Keep-alive Supabase
+
+# Evita que el proyecto de Supabase (plan gratuito) se pause por
+# inactividad. El plan Free pausa la base de datos tras ~7 dias sin
+# peticiones; este workflow hace una consulta ligera varias veces por
+# semana para mantenerla activa.
+
+on:
+  schedule:
+    # Lunes, miercoles y viernes a las 06:00 UTC.
+    # (Cualquier hueco entre ejecuciones es < 7 dias, con margen de sobra.)
+    - cron: '0 6 * * 1,3,5'
+  # Permite ejecutarlo manualmente desde la pestaña Actions.
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar la API REST de Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Faltan los secrets SUPABASE_URL y/o SUPABASE_ANON_KEY."
+            exit 1
+          fi
+
+          # Consulta minima a una tabla real. Aunque RLS filtre las filas
+          # (devolviendo vacio con la anon key), la peticion llega a Postgres
+          # y cuenta como actividad para Supabase.
+          status=$(curl -s -o /tmp/resp.txt -w '%{http_code}' \
+            "$SUPABASE_URL/rest/v1/activos?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+
+          echo "HTTP $status"
+          echo "Respuesta: $(cat /tmp/resp.txt)"
+
+          # 200 (ok) y 401/403 (bloqueado por RLS) igual mantienen viva la BD.
+          if [ "$status" -ge 500 ]; then
+            echo "La API respondio con error de servidor."
+            exit 1
+          fi
+
+          echo "Ping a Supabase completado correctamente."
